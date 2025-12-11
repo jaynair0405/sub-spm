@@ -33,9 +33,13 @@ Thumbs.db
 *.db
 *.sqlite
 
-# Test data (keep only reference files)
+# Excel data files (large, temporary)
+*.xlsx
+*.xls
 *.csv
-test_*.xlsx
 
-# Keep example data
-!28-11-25*.xlsx
+# PDF files
+*.pdf
+
+# Reference app (separate project)
+rail-data-app/

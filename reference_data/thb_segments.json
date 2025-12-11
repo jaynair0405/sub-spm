@@ -1,0 +1,597 @@
+[
+  {
+    "segment": "VSH_THB-SNPD",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 1.0,
+        "limit": 80
+      }
+    ]
+  },
+  {
+    "segment": "SNPD-TUH",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 0.31,
+        "limit": 80
+      },
+      {
+        "startPct": 0.31,
+        "endPct": 0.6,
+        "limit": 30
+      },
+      {
+        "startPct": 0.6,
+        "endPct": 0.78,
+        "limit": 80
+      },
+      {
+        "startPct": 0.78,
+        "endPct": 0.81,
+        "limit": 50
+      },
+      {
+        "startPct": 0.81,
+        "endPct": 1.0,
+        "limit": 80
+      }
+    ]
+  },
+  {
+    "segment": "TUH-KPHN",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 0.55,
+        "limit": 80
+      },
+      {
+        "startPct": 0.55,
+        "endPct": 0.64,
+        "limit": 70
+      },
+      {
+        "startPct": 0.64,
+        "endPct": 1.0,
+        "limit": 65
+      }
+    ]
+  },
+  {
+    "segment": "KPHN-GNSL",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 0.1,
+        "limit": 65
+      },
+      {
+        "startPct": 0.1,
+        "endPct": 0.18,
+        "limit": 50
+      },
+      {
+        "startPct": 0.18,
+        "endPct": 0.74,
+        "limit": 80
+      },
+      {
+        "startPct": 0.74,
+        "endPct": 0.8,
+        "limit": 75
+      },
+      {
+        "startPct": 0.8,
+        "endPct": 1.0,
+        "limit": 80
+      }
+    ]
+  },
+  {
+    "segment": "GNSL-RABE",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 0.49,
+        "limit": 80
+      },
+      {
+        "startPct": 0.49,
+        "endPct": 0.63,
+        "limit": 50
+      },
+      {
+        "startPct": 0.63,
+        "endPct": 1.0,
+        "limit": 80
+      }
+    ]
+  },
+  {
+    "segment": "RABE-AIRL",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 0.06,
+        "limit": 80
+      },
+      {
+        "startPct": 0.06,
+        "endPct": 0.1,
+        "limit": 70
+      },
+      {
+        "startPct": 0.1,
+        "endPct": 1.0,
+        "limit": 80
+      }
+    ]
+  },
+  {
+    "segment": "AIRL-DIGH",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 1.0,
+        "limit": 80
+      }
+    ]
+  },
+  {
+    "segment": "DIGH-TNA",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 0.3,
+        "limit": 80
+      },
+      {
+        "startPct": 0.3,
+        "endPct": 0.45,
+        "limit": 20
+      },
+      {
+        "startPct": 0.45,
+        "endPct": 1.0,
+        "limit": 80
+      }
+    ]
+  },
+  {
+    "segment": "NEU_THB-JNJ",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 1.0,
+        "limit": 80
+      }
+    ]
+  },
+  {
+    "segment": "JNJ-TUH",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 1.0,
+        "limit": 80
+      }
+    ]
+  },
+  {
+    "segment": "TNA-DIGH",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 0.01,
+        "limit": 80
+      },
+      {
+        "startPct": 0.01,
+        "endPct": 0.08,
+        "limit": 70
+      },
+      {
+        "startPct": 0.08,
+        "endPct": 0.1,
+        "limit": 80
+      },
+      {
+        "startPct": 0.1,
+        "endPct": 0.13,
+        "limit": 75
+      },
+      {
+        "startPct": 0.13,
+        "endPct": 0.65,
+        "limit": 80
+      },
+      {
+        "startPct": 0.65,
+        "endPct": 0.77,
+        "limit": 20
+      },
+      {
+        "startPct": 0.77,
+        "endPct": 1.0,
+        "limit": 80
+      }
+    ]
+  },
+  {
+    "segment": "DIGH-AIRL",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 0.28,
+        "limit": 80
+      },
+      {
+        "startPct": 0.28,
+        "endPct": 0.5,
+        "limit": 75
+      },
+      {
+        "startPct": 0.5,
+        "endPct": 1.0,
+        "limit": 80
+      }
+    ]
+  },
+  {
+    "segment": "AIRL-RABE",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 0.36,
+        "limit": 80
+      },
+      {
+        "startPct": 0.36,
+        "endPct": 0.5,
+        "limit": 75
+      },
+      {
+        "startPct": 0.5,
+        "endPct": 1.0,
+        "limit": 80
+      }
+    ]
+  },
+  {
+    "segment": "RABE-GNSL",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 1.0,
+        "limit": 80
+      }
+    ]
+  },
+  {
+    "segment": "GNSL-KPHN",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 0.55,
+        "limit": 80
+      },
+      {
+        "startPct": 0.55,
+        "endPct": 0.9,
+        "limit": 50
+      },
+      {
+        "startPct": 0.9,
+        "endPct": 1.0,
+        "limit": 80
+      }
+    ]
+  },
+  {
+    "segment": "KPHN-TUH",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 0.01,
+        "limit": 80
+      },
+      {
+        "startPct": 0.01,
+        "endPct": 0.08,
+        "limit": 70
+      },
+      {
+        "startPct": 0.08,
+        "endPct": 0.71,
+        "limit": 80
+      },
+      {
+        "startPct": 0.71,
+        "endPct": 1.0,
+        "limit": 65
+      }
+    ]
+  },
+  {
+    "segment": "TUH-SNPD",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 0.02,
+        "limit": 65
+      },
+      {
+        "startPct": 0.02,
+        "endPct": 0.33,
+        "limit": 40
+      },
+      {
+        "startPct": 0.33,
+        "endPct": 0.7,
+        "limit": 30
+      },
+      {
+        "startPct": 0.7,
+        "endPct": 1.0,
+        "limit": 50
+      }
+    ]
+  },
+  {
+    "segment": "SNPD-VSH_THB",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 1.0,
+        "limit": 50
+      }
+    ]
+  },
+  {
+    "segment": "TUH-JNJ",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 1.0,
+        "limit": 80
+      }
+    ]
+  },
+  {
+    "segment": "JNJ-NEU_THB",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 1.0,
+        "limit": 80
+      }
+    ]
+  },
+  {
+    "segment": "PNVL-KNDS",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 1.0,
+        "limit": 95
+      }
+    ]
+  },
+  {
+    "segment": "KNDS-MANR",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 1.0,
+        "limit": 95
+      }
+    ]
+  },
+  {
+    "segment": "MANR-KHAG",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 0.55,
+        "limit": 95
+      },
+      {
+        "startPct": 0.55,
+        "endPct": 0.98,
+        "limit": 90
+      },
+      {
+        "startPct": 0.98,
+        "endPct": 1.0,
+        "limit": 95
+      }
+    ]
+  },
+  {
+    "segment": "KHAG-BEPR",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 0.39,
+        "limit": 95
+      },
+      {
+        "startPct": 0.39,
+        "endPct": 0.85,
+        "limit": 80
+      },
+      {
+        "startPct": 0.85,
+        "endPct": 1.0,
+        "limit": 40
+      }
+    ]
+  },
+  {
+    "segment": "BEPR-SWDV",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 0.15,
+        "limit": 45
+      },
+      {
+        "startPct": 0.15,
+        "endPct": 0.37,
+        "limit": 65
+      },
+      {
+        "startPct": 0.37,
+        "endPct": 0.8,
+        "limit": 80
+      },
+      {
+        "startPct": 0.8,
+        "endPct": 1.0,
+        "limit": 65
+      }
+    ]
+  },
+  {
+    "segment": "SWDV-NEU_THB",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 1.0,
+        "limit": 95
+      }
+    ]
+  },
+  {
+    "segment": "NEU_THB-SWDV",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 0.12,
+        "limit": 95
+      },
+      {
+        "startPct": 0.12,
+        "endPct": 0.39,
+        "limit": 30
+      },
+      {
+        "startPct": 0.39,
+        "endPct": 0.65,
+        "limit": 90
+      },
+      {
+        "startPct": 0.65,
+        "endPct": 1.0,
+        "limit": 80
+      }
+    ]
+  },
+  {
+    "segment": "SWDV-BEPR",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 0.17,
+        "limit": 80
+      },
+      {
+        "startPct": 0.17,
+        "endPct": 0.29,
+        "limit": 95
+      },
+      {
+        "startPct": 0.29,
+        "endPct": 0.72,
+        "limit": 80
+      },
+      {
+        "startPct": 0.72,
+        "endPct": 0.77,
+        "limit": 95
+      },
+      {
+        "startPct": 0.77,
+        "endPct": 0.88,
+        "limit": 65
+      },
+      {
+        "startPct": 0.88,
+        "endPct": 1.0,
+        "limit": 45
+      }
+    ]
+  },
+  {
+    "segment": "BEPR-KHAG",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 0.16,
+        "limit": 45
+      },
+      {
+        "startPct": 0.16,
+        "endPct": 0.79,
+        "limit": 80
+      },
+      {
+        "startPct": 0.79,
+        "endPct": 1.0,
+        "limit": 95
+      }
+    ]
+  },
+  {
+    "segment": "KHAG-MANR",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 0.14,
+        "limit": 95
+      },
+      {
+        "startPct": 0.14,
+        "endPct": 0.56,
+        "limit": 90
+      },
+      {
+        "startPct": 0.56,
+        "endPct": 1.0,
+        "limit": 95
+      }
+    ]
+  },
+  {
+    "segment": "MANR-KNDS",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 0.46,
+        "limit": 95
+      },
+      {
+        "startPct": 0.46,
+        "endPct": 0.86,
+        "limit": 90
+      },
+      {
+        "startPct": 0.86,
+        "endPct": 1.0,
+        "limit": 95
+      }
+    ]
+  },
+  {
+    "segment": "KNDS-PNVL",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 1.0,
+        "limit": 95
+      }
+    ]
+  }
+]

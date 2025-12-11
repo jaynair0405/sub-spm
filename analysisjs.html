@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+<body>
+  
+<script>
+
+  
+function loadAnalysisData() {
+    // Fetch the latest analysis data first
+    google.script.run
+        .withSuccessHandler(function (analysisData) {
+            // After getting analysis data, fetch the staff data
+            google.script.run
+                .withSuccessHandler(function (staffData) {
+                    // Find the matching mobile number from staff data
+                    const mmanId = analysisData.mmanId;
+                    const mmanRow = staffData.find(row => row[0] === mmanId);
+                    const mmanMobile = mmanRow ? mmanRow[2] : '-';
+
+                    // Add the mobile number to analysis data
+                    analysisData.mmanMobile = mmanMobile;
+
+                    // Populate fields with the complete analysis data
+                    populateFields(analysisData);
+                })
+                .withFailureHandler(handleError)
+                .getAllStaffData();
+        })
+        .withFailureHandler(handleError)
+        .getLatestAnalysisData();
+}
+
+
+
+
+// Function to populate all fields with the received data
+function populateFields(data) {
+  // Populate each field with corresponding data
+  document.getElementById('dateWorking').textContent = data.dateWorking;
+  document.getElementById('mmanId').textContent = data.mmanId;
+  document.getElementById('mmanName').textContent = data.mmanName;
+  document.getElementById('trainNumber').textContent = data.trainNumber;
+  document.getElementById('fromStation').textContent = data.fromStation;
+  document.getElementById('toStation').textContent = data.toStation;
+  document.getElementById('unitNumber').textContent = data.unitNumber;
+  document.getElementById('rake').textContent = data.rake;
+  document.getElementById('shed').textContent = data.shed;
+  document.getElementById('ncli').textContent = data.ncli;
+  document.getElementById('analysedBy').textContent = data.analysedBy;
+  document.getElementById('dateAnalysis').textContent = data.dateAnalysis;
+   document.getElementById('trainType').textContent = data.trainType;
+   document.getElementById('mmanMobile').textContent = data.mmanMobile || '-';
+ 
+}
+
+// Error handler function
+function handleError(error) {
+  console.error('Error:', error);
+  alert('An error occurred while loading the data. Please try again.');
+}
+
+// Call loadAnalysisData when the page loads
+// window.onload = loadAnalysisData;
+</script>
+
+<script>
+function loadHaltsTable() {
+    google.script.run
+        .withSuccessHandler(function (brakingPatterns) {
+            const haltsTableBody = document.getElementById('haltsTable').querySelector('tbody');
+            haltsTableBody.innerHTML = ''; // Clear existing table rows
+
+            brakingPatterns.forEach(pattern => {
+                const row = document.createElement('tr');
+
+                const stationCell = createCell(pattern.station);
+                const distance300Cell = createCell(pattern.speed300m || '-');
+                const distance130Cell = createCell(pattern.speed130m || '-');
+                const distance25Cell = createCell(pattern.speed25m || '-');
+                const haltCell = createCell(0); // Default Halt column value
+
+                row.append(stationCell, distance300Cell, distance130Cell, distance25Cell, haltCell);
+                haltsTableBody.appendChild(row);
+            });
+        })
+        .withFailureHandler(function (error) {
+            console.error('Error fetching braking patterns:', error);
+            alert('Failed to load halts table. Please try again.');
+        })
+        .analyzeBrakingPattern();
+}
+
+function createCell(content) {
+    const cell = document.createElement('td');
+    cell.textContent = content;
+    return cell;
+}
+
+// Call the function to load the halts table when the page loads
+// window.onload = function () {
+//     loadHaltsTable();
+// };
+</script>
+<script>
+document.getElementById('showReportsBtn').addEventListener('click', function () {
+        loadAnalysisData();
+        loadHaltsTable();
+        populateSpeedViolationTable();
+        loadPreviousAnalysis()
+    });
+</script>
+
+<script>
+
+function populateSpeedViolationTable() {
+    google.script.run
+        .withSuccessHandler(function (violations) {
+          console.log('Violations received:', violations); 
+            const tableBody = document.getElementById('speedViolationTable').querySelector('tbody');
+            tableBody.innerHTML = ''; // Clear existing rows
+console.log(violations)
+            if (violations && violations.length > 0) {
+                (violations).forEach(violation => {
+                    const row = document.createElement('tr');
+                    violation.forEach(data => {
+                        const cell = document.createElement('td');
+                        cell.textContent = data;
+                        row.appendChild(cell);
+                    });
+                    tableBody.appendChild(row);
+                });
+            } else {
+                const row = document.createElement('tr');
+                const cell = document.createElement('td');
+                cell.colSpan = 5; // Spanning all columns
+                cell.textContent = 'No Violations Found';
+                row.appendChild(cell);
+                tableBody.appendChild(row);
+            }
+        })
+        .withFailureHandler(function (error) {
+            console.error('Error fetching overspeeding data:', error);
+            alert('Failed to load speed violations. Please try again.');
+        })
+        .findOverspeedingInstances(); // Server function to fetch the data
+}
+
+
+</script>
+<script>
+    // Function to load Previous Analysis data
+    function loadPreviousAnalysis() {
+        const analysisContainer = document.getElementById("previousAnalysis");
+        analysisContainer.innerHTML = "<p>Loading...</p>";
+
+        google.script.run
+            .withSuccessHandler((data) => {
+              console.log(data)
+                if (!data || !data.records || data.records.length === 0) {
+                    analysisContainer.innerHTML = "<p>No analysis data available for the current MMan.</p>";
+                    return;
+                }
+
+                analysisContainer.innerHTML = ""; // Clear loading text
+
+                // Create table for the data
+                const table = document.createElement("table");
+                table.classList.add("analysis-table");
+
+                // Add headers 
+                const headers = ["Date of Working", "Train No", "From Station", "To Station", "Future Use 1", "Future Use 2"];
+                const thead = document.createElement("thead");
+                const headerRow = document.createElement("tr");
+                headers.forEach((header) => {
+                    const th = document.createElement("th");
+                    th.textContent = header;
+                    headerRow.appendChild(th);
+                });
+                thead.appendChild(headerRow);
+                table.appendChild(thead);
+
+                // Add body
+                const tbody = document.createElement("tbody");
+                JSON.parse(data.records).forEach((record) => {
+                    const row = document.createElement("tr");
+
+                    const formattedDate = new Intl.DateTimeFormat("en-GB", {
+                    day: "2-digit",
+                    month: "short",
+                    year: "numeric",
+                }).format(new Date(record.dateOfWorking));
+                    [
+                         formattedDate,
+                        record.trainNo,
+                        record.fromStation,
+                        record.toStation,
+                        record.futureUse1,
+                        record.futureUse2,
+                    ].forEach((col) => {
+                        const td = document.createElement("td");
+                        td.textContent = col;
+                        row.appendChild(td);
+                    });
+                    tbody.appendChild(row);
+                });
+
+                table.appendChild(tbody);
+                analysisContainer.appendChild(table);
+
+                // Add summary
+                const summary = document.createElement("p");
+                summary.textContent = `Total Records Found: ${data.totalCount}, Displaying: ${data.displayCount}`;
+                analysisContainer.appendChild(summary);
+            })
+            .withFailureHandler((error) => {
+                analysisContainer.innerHTML = `<p>Error loading analysis data: ${error}</p>`;
+            })
+            .getPreviousAnalysis();
+    }
+
+</script>  
+</body>
+</html>

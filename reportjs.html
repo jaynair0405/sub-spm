@@ -1,0 +1,530 @@
+<script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
+
+<script>
+// Add event listener for the Generate Report button
+document.addEventListener('DOMContentLoaded', function() {
+  document.getElementById("generateReportBtn").addEventListener("click", function() {
+  const statusEl = document.getElementById("status");
+  const spinnerContainer = document.getElementById("spinner-container");
+  const progressCircle = document.getElementById("progress-indicator");
+  const progressText = document.getElementById("progress-percentage");
+  
+  statusEl.innerHTML = "Generating reports...";
+  document.getElementById("generateReportBtn").disabled = true;
+  spinnerContainer.style.display = "block";
+  
+  // Animate the progress circle
+  let progress = 0;
+  const totalTime = 40000; // 40 seconds
+  const updateInterval = 500; // Update every 0.5 seconds
+  const steps = totalTime / updateInterval;
+  const increment = 100 / steps;
+  
+  const circumference = 2 * Math.PI * 25; // 2πr where r=25 is the circle radius
+  
+  const progressInterval = setInterval(() => {
+    progress += increment;
+    if (progress > 100) progress = 99; // Cap at 99% until complete
+    
+    // Update the circle
+    const offset = circumference - (progress / 100) * circumference;
+    progressCircle.style.strokeDashoffset = offset;
+    
+    // Update the text
+    progressText.textContent = Math.round(progress) + "%";
+  }, updateInterval);
+  
+  // Call server function
+  google.script.run
+    .withSuccessHandler(function(result) {
+      clearInterval(progressInterval);
+      progressCircle.style.strokeDashoffset = 0;
+      progressText.textContent = "100%";
+      statusEl.innerHTML = "Reports generated, creating diagram image...";
+      setTimeout(() => {
+        convertToImage();
+      }, 1000);
+    })
+    .withFailureHandler(function(error) {
+      clearInterval(progressInterval);
+      statusEl.innerHTML = "Error generating reports";
+      document.getElementById("progress").innerHTML = "Error: " + error;
+      document.getElementById("generateReportBtn").disabled = false;
+      spinnerContainer.style.display = "none";
+    })
+    .generateReports();
+});
+  // document.getElementById("generateReportBtn").addEventListener("click", function() {
+  //   document.getElementById("status").innerHTML = "Generating reports...";
+  //   document.getElementById("progress").innerHTML = "";
+  //   document.getElementById("generateReportBtn").disabled = true; // Disable button during generation
+    
+  //   // First call the server-side generateReports function
+  //   google.script.run
+  //     .withSuccessHandler(function(result) {
+  //       // After reports are generated, convert SVG to image
+  //       document.getElementById("status").innerHTML = "Reports generated, creating diagram image...";
+  //       convertToImage();
+  //     })
+  //     .withFailureHandler(function(error) {
+  //       document.getElementById("status").innerHTML = "Error generating reports: " + error;
+  //       document.getElementById("generateReportBtn").disabled = false; // Re-enable button
+  //     })
+  //     .generateReports();
+  // });
+});
+
+function convertToImage() {
+  const svg = document.getElementById('railwayLine');
+  const svgString = new XMLSerializer().serializeToString(svg);
+  
+  // Add inline styles to ensure they're captured in the image
+  const styledSvgString = svgString.replace('</svg>', `
+    <style>
+      .main-line { stroke: #000; stroke-width: 2; }
+      .station-circle.low-speed { fill: #00cc00; } /* Green for speeds below threshold */
+      .station-circle.high-speed { fill: #ff0000; } /* Red for speeds above threshold */
+      .station-text { font-size: 16px; font-family: Arial; }
+      .speed-text { font-size: 16px; font-family: Arial; font-weight: bold; fill: #333; }
+    </style>
+  </svg>`);
+  
+  const canvas = document.createElement('canvas');
+  const svgSize = svg.getBoundingClientRect();
+  canvas.width = svgSize.width || 1200;
+  canvas.height = svgSize.height || 150;
+  
+  const ctx = canvas.getContext('2d');
+  // Add white background
+  ctx.fillStyle = 'white';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  
+  const img = new Image();
+  img.onload = function() {
+    ctx.drawImage(img, 0, 0);
+    const dataURL = canvas.toDataURL('image/png');
+    
+    // Send the data URL to the server
+    google.script.run
+      .withSuccessHandler(function(response) {
+        document.getElementById("status").innerHTML = "Reports generated and image inserted successfully!";
+        document.getElementById("generateReportBtn").disabled = false; // Re-enable button
+      })
+      .withFailureHandler(function(error) {
+        document.getElementById("status").innerHTML = "Error inserting image: " + error;
+        document.getElementById("generateReportBtn").disabled = false; // Re-enable button
+      })
+      .insertImageToSheet(dataURL);
+  };
+  
+  img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(styledSvgString);
+}
+
+function imageInsertSuccess() {
+  document.getElementById("status").innerHTML = "Image inserted successfully!";
+  document.getElementById("generateReportBtn").disabled = false; // Re-enable button
+}
+</script>
+
+<script>
+  // Function to create the railway line diagram
+  function createRailwayLine(stationData) {
+    const padding = 50;
+    const width = 1200;
+    const height = 150;
+    const lineY = height / 2;
+    const SPEED_THRESHOLD = 43;
+    
+    // Filter out null distances and get valid stations
+    const validStations = stationData.filter(s => s.distance !== null);
+    const maxDistance = Math.max(...validStations.map(s => s.distance));
+
+    // Set up SVG
+    const svg = document.getElementById('railwayLine');
+    svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+    svg.style.width = '100%';
+    svg.style.height = '100%';
+    
+    // Clear any existing content
+    while (svg.firstChild) {
+      svg.removeChild(svg.firstChild);
+    }
+
+    // Create main line
+    const mainLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    mainLine.setAttribute('x1', padding);
+    mainLine.setAttribute('y1', lineY);
+    mainLine.setAttribute('x2', width - padding);
+    mainLine.setAttribute('y2', lineY);
+    mainLine.setAttribute('stroke', '#000');
+    mainLine.setAttribute('stroke-width', '2');
+    mainLine.setAttribute('class', 'main-line');
+    svg.appendChild(mainLine);
+
+    // Function to calculate x position based on distance
+    function getXPosition(distance) {
+      return (distance / maxDistance) * (width - 2 * padding) + padding;
+    }
+
+    // Add stations
+    validStations.forEach((station, index) => {
+      // Create station circle
+      const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      const xPos = getXPosition(station.distance);
+      circle.setAttribute('cx', xPos);
+      circle.setAttribute('cy', lineY);
+      circle.setAttribute('r', 6);
+      
+      // Set color based on speed
+      if (station.speed <= SPEED_THRESHOLD) {
+        circle.setAttribute('fill', '#00cc00'); // Green for speeds below or equal to threshold
+        circle.setAttribute('class', 'station-circle low-speed');
+      } else {
+        circle.setAttribute('fill', '#ff0000'); // Red for speeds above threshold
+        circle.setAttribute('class', 'station-circle high-speed');
+      }
+      
+      svg.appendChild(circle);
+
+      // Station name
+      const stationText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      stationText.textContent = station.station.replace('Entry', '');
+      stationText.setAttribute('x', xPos);
+      stationText.setAttribute('y', index % 2 === 0 ? lineY - 20 : lineY + 35);
+      stationText.setAttribute('text-anchor', 'middle');
+      stationText.setAttribute('font-size', '12px');
+      stationText.setAttribute('font-family', 'Arial');
+      stationText.setAttribute('class', 'station-text');
+      svg.appendChild(stationText);
+
+      // Speed label
+      const speedText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      speedText.textContent = station.speed.toFixed(0);
+      speedText.setAttribute('x', xPos);
+      speedText.setAttribute('y', index % 2 === 0 ? lineY - 35 : lineY + 50);
+      speedText.setAttribute('text-anchor', 'middle');
+      speedText.setAttribute('font-size', '14px');
+      speedText.setAttribute('font-family', 'Arial');
+      speedText.setAttribute('font-weight', 'bold');
+      speedText.setAttribute('class', 'speed-text');
+      svg.appendChild(speedText);
+    });
+  }
+  
+  // When running in Apps Script, we'll get data from the server
+  google.script.run
+    .withSuccessHandler(function(data) {
+      createRailwayLine(data);
+      // Note: no longer automatically converting to image - wait for button click
+    })
+    .previousStationAndDistanceWithSpeed();
+</script>
+
+<script type="text/javascript">
+  google.charts.load("current", { packages: ["corechart"] })
+  google.charts.setOnLoadCallback(initializeCharts)
+
+  function createComboChartContainers(numberOfCharts) {
+    const container = document.getElementById("speedProfileChart")
+    container.innerHTML = "" // Clear existing content
+    for (let i = 0; i < numberOfCharts; i++) {
+      const chartDiv = document.createElement("div")
+      chartDiv.id = `combo_chart_${i}`
+      chartDiv.style.height = "500px"
+      chartDiv.style.marginBottom = "30px"
+      container.appendChild(chartDiv)
+    }
+  }
+
+  function createLineChartContainers(numberOfCharts) {
+    const container = document.getElementById("detailedAnalysisChart")
+    container.innerHTML = "" // Clear existing content
+    for (let i = 0; i < numberOfCharts; i++) {
+      const chartDiv = document.createElement("div")
+      chartDiv.id = `line_chart_${i}`
+      chartDiv.style.height = "400px"
+      chartDiv.style.marginBottom = "30px"
+      container.appendChild(chartDiv)
+    }
+  }
+
+  function drawComboCharts() {
+    return new Promise((resolve, reject) => {
+      google.script.run
+        .withSuccessHandler((data) => {
+          const ROWS_PER_CHART = 500 // This is now a guideline, not a strict limit
+          const headers = data[0]
+          const chartData = data.slice(1) // Remove headers
+
+          // Calculate number of charts needed (this may change as we process the data)
+          const numberOfCharts = Math.ceil(chartData.length / ROWS_PER_CHART)
+
+          // Create container divs for each chart
+          createComboChartContainers(numberOfCharts)
+
+          let startIndex = 0
+          let chartIndex = 0
+
+          while (startIndex < chartData.length) {
+            let endIndex = Math.min(startIndex + ROWS_PER_CHART, chartData.length)
+
+            // Ensure we don't cut off in the middle of a station
+            while (endIndex < chartData.length - 1 && chartData[endIndex][0] === chartData[endIndex + 1][0]) {
+              endIndex++
+            }
+
+            // Create data for this chart segment
+            const chartSegment = [headers].concat(chartData.slice(startIndex, endIndex))
+            var dataTable = google.visualization.arrayToDataTable(chartSegment)
+
+            var minDistance = dataTable.getValue(1, 0)
+            var maxDistance = dataTable.getValue(dataTable.getNumberOfRows() - 1, 0)
+
+            var options = {
+              title: `Speed Profile (Distance ${minDistance.toFixed(2)}m to ${maxDistance.toFixed(2)}m)`,
+              hAxis: {
+                title: "Distance",
+                viewWindow: {
+                  min: minDistance,
+                  max: maxDistance,
+                },
+              },
+              vAxis: {
+                title: "Speed",
+                ticks: [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110],
+              },
+              seriesType: "bars",
+              series: {
+                0: {
+                  type: "bars",
+                  dataLabels: { visible: true },
+                },
+                1: {
+                  type: "line",
+                  curveType: "function",
+                  color: "red",
+                  lineWidth: 2,
+                },
+                2: {
+                  type: "steppedArea",
+                  color: "lightgreen",
+                },
+                3: {
+                  type: "steppedArea",
+                  color: "pink",
+                },
+              },
+              legend: "none",
+              annotations: {
+                textStyle: {
+                  fontSize: 12,
+                  color: "black",
+                },
+                stem: {
+                  length: 4,
+                },
+                placement: "above",
+              },
+              bar: { groupWidth: "100%" },
+            }
+
+            var chart = new google.visualization.ComboChart(document.getElementById(`combo_chart_${chartIndex}`))
+
+            // Create view with custom formatting
+            var view = new google.visualization.DataView(dataTable)
+            view.setColumns([
+              0, // Distance
+              1, // Station values
+              {
+                type: "string",
+                role: "annotation",
+                calc: (dt, row) => dt.getValue(row, 5) || dt.getValue(row, 6),
+              },
+              {
+                type: "string",
+                role: "style",
+                calc: (dt, row) => {
+                  const value = dt.getValue(row, 1)
+                  return value == 40 ? "fill-color: blue" : value == 20 ? "fill-color: red" : "fill-color: lightblue"
+                },
+              },
+              {
+                type: "string",
+                role: "tooltip",
+                calc: (dt, row) => {
+                  const label = dt.getValue(row, 5) || dt.getValue(row, 6)
+                  return "Station: " + label + "\nSpeed: " + dt.getValue(row, 2) + " km/h"
+                },
+              },
+              2, // Speed Line
+              3, // Max Speed Limit
+              4, // TSR
+            ])
+
+            chart.draw(view, options)
+
+            // Update for next iteration
+            startIndex = endIndex
+            chartIndex++
+          }
+
+          // If we created more charts than needed, remove the extra containers
+          if (chartIndex < numberOfCharts) {
+            for (let i = chartIndex; i < numberOfCharts; i++) {
+              const extraChart = document.getElementById(`combo_chart_${i}`)
+              if (extraChart) extraChart.remove()
+            }
+          }
+
+          resolve()
+        })
+        .withFailureHandler((error) => {
+          console.error("Error fetching chart data:", error)
+          document.getElementById("speedProfileChart").innerHTML = "Error loading chart data"
+          reject(error)
+        })
+        .getSPMDataForChart()
+    })
+  }
+  
+  function drawLineCharts() {
+    return new Promise((resolve, reject) => {
+      google.script.run
+        .withSuccessHandler((brakingPatterns) => {
+          const HALTS_PER_CHART = 4;
+          const numberOfCharts = Math.ceil(brakingPatterns.length / HALTS_PER_CHART);
+
+          createLineChartContainers(numberOfCharts);
+
+          for (let chartIndex = 0; chartIndex < numberOfCharts; chartIndex++) {
+            const startIndex = chartIndex * HALTS_PER_CHART;
+            const endIndex = Math.min(startIndex + HALTS_PER_CHART, brakingPatterns.length);
+            const chartPatterns = brakingPatterns.slice(startIndex, endIndex);
+
+            const data = new google.visualization.DataTable();
+            data.addColumn("string", "Distance");
+
+            const stationData = {};
+            chartPatterns.forEach((pattern) => {
+              if (!stationData[pattern.station]) {
+                stationData[pattern.station] = {
+                  "300m": pattern.speed300m,
+                  "130m": pattern.speed130m,
+                  "100m": pattern.speed100m,
+                  "75m": pattern.speed75m,
+                  "50m": pattern.speed50m,
+                  "25m": pattern.speed25m,
+                  "20m": pattern.speed20m,
+                  "15m": pattern.speed15m,
+                  "10m": pattern.speed10m,
+                  "5m": pattern.speed5m,
+                  "Halt": 0
+                };
+              }
+            });
+
+            const stations = Object.keys(stationData);
+            stations.forEach((station) => {
+              data.addColumn("number", station);
+            });
+
+            // Updated distances array to include all points
+            const distances = [
+              "300m", "130m", "100m", "75m", "50m", 
+              "25m", "20m", "15m", "10m", "5m", "Halt"
+            ];
+            const rows = distances.map((distance) => {
+              const row = [distance];
+              stations.forEach((station) => {
+                row.push(stationData[station][distance]);
+              });
+              return row;
+            });
+
+            data.addRows(rows);
+
+            const options = {
+              title: "Speed vs Distance",
+              curveType: "function",
+              legend: { position: "top" },
+              hAxis: {
+                title: "Distance",
+                titleTextStyle: { bold: true },
+              },
+              vAxis: {
+                title: "Speed",
+                titleTextStyle: { bold: true },
+                viewWindow: {
+                  min: 0,
+                  max: 50,
+                },
+              },
+              lineWidth: 3,
+              pointSize: 5,
+            };
+
+            const colors = ["#4285f4", "#ea4335", "#fbbc05", "#34a853", "#46bdc6", "#7baaf7"];
+            const series = {};
+            stations.forEach((station, index) => {
+              series[index] = { color: colors[index % colors.length] };
+            });
+            options.series = series;
+
+            const chart = new google.visualization.LineChart(document.getElementById(`line_chart_${chartIndex}`));
+            chart.draw(data, options);
+          }
+          resolve();
+        })
+        .withFailureHandler((error) => {
+          console.error("Error fetching braking patterns:", error);
+          document.getElementById("detailedAnalysisChart").innerHTML = "Error loading chart data";
+          reject(error);
+        })
+        .analyzeBrakingPattern();
+    });
+  }
+
+  function initializeCharts() {
+    drawLineCharts()  // Draw line charts FIRST
+      .then(() => drawComboCharts()) // Then draw combo charts
+      .catch((error) => console.error("Error initializing charts:", error));
+  }
+
+  // Add resize listener
+  window.addEventListener("resize", initializeCharts)
+</script>
+
+<script>
+  function displayScheduledHalts(halts) {
+    const haltsElement = document.getElementById('scheduledHalts');
+    haltsElement.textContent = halts;
+  }
+  
+  function getScheduledHalts(trainNumber, trainType) {
+    if (trainType === 'Fast') {
+      google.script.run
+        .withSuccessHandler(data => {
+          const matchingTrain = data.find(row => row[0].replace(/\s+/g, '') == trainNumber);
+          if (matchingTrain) {
+            displayScheduledHalts(matchingTrain[2]); // Display halts
+          } else {
+            displayScheduledHalts("Train number not found.");
+          }
+        })
+        .getTrainData();
+    } else { // Assuming 'Slow' or other types
+      displayScheduledHalts("All Stations"); // Directly display "All Stations"
+    }
+  }
+
+  function fetchAndDisplayHalts() {  // New function for fetching and displaying halts
+    google.script.run
+      .withSuccessHandler(analysisData => {
+        getScheduledHalts(analysisData.trainNumber, analysisData.trainType);
+      })
+      .getLatestAnalysisData();
+  }
+  
+  // Call this function when page loads
+  window.addEventListener('DOMContentLoaded', fetchAndDisplayHalts);
+</script>

@@ -1,0 +1,2667 @@
+[
+  {
+    "segment": "CSMT-BY",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 0.12,
+        "limit": 30
+      },
+      {
+        "startPct": 0.12,
+        "endPct": 0.23,
+        "limit": 40
+      },
+      {
+        "startPct": 0.23,
+        "endPct": 0.3,
+        "limit": 30
+      },
+      {
+        "startPct": 0.3,
+        "endPct": 0.46,
+        "limit": 70
+      },
+      {
+        "startPct": 0.46,
+        "endPct": 0.73,
+        "limit": 105
+      },
+      {
+        "startPct": 0.73,
+        "endPct": 1.0,
+        "limit": 60
+      }
+    ]
+  },
+  {
+    "segment": "BY-PR",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 0.54,
+        "limit": 105
+      },
+      {
+        "startPct": 0.54,
+        "endPct": 0.64,
+        "limit": 70
+      },
+      {
+        "startPct": 0.64,
+        "endPct": 0.91,
+        "limit": 105
+      },
+      {
+        "startPct": 0.91,
+        "endPct": 1.0,
+        "limit": 80
+      }
+    ]
+  },
+  {
+    "segment": "PR-DR",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 0.26,
+        "limit": 80
+      },
+      {
+        "startPct": 0.26,
+        "endPct": 1.0,
+        "limit": 105
+      }
+    ]
+  },
+  {
+    "segment": "DR-MTN",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 1.0,
+        "limit": 105
+      }
+    ]
+  },
+  {
+    "segment": "MTN-SION",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 0.13,
+        "limit": 105
+      },
+      {
+        "startPct": 0.13,
+        "endPct": 0.32,
+        "limit": 65
+      },
+      {
+        "startPct": 0.32,
+        "endPct": 1.0,
+        "limit": 105
+      }
+    ]
+  },
+  {
+    "segment": "SION-CLA",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 1.0,
+        "limit": 105
+      }
+    ]
+  },
+  {
+    "segment": "CLA-GC",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 0.68,
+        "limit": 105
+      },
+      {
+        "startPct": 0.68,
+        "endPct": 0.78,
+        "limit": 65
+      },
+      {
+        "startPct": 0.78,
+        "endPct": 1.0,
+        "limit": 105
+      }
+    ]
+  },
+  {
+    "segment": "GC-VK",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 1.0,
+        "limit": 105
+      }
+    ]
+  },
+  {
+    "segment": "VK-BND",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 1.0,
+        "limit": 105
+      }
+    ]
+  },
+  {
+    "segment": "BND-MLND",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 1.0,
+        "limit": 105
+      }
+    ]
+  },
+  {
+    "segment": "MLND-TNA",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 1.0,
+        "limit": 105
+      }
+    ]
+  },
+  {
+    "segment": "TNA-KLVA",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 1.0,
+        "limit": 105
+      }
+    ]
+  },
+  {
+    "segment": "KLVA-MBQ",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 0.27,
+        "limit": 105
+      },
+      {
+        "startPct": 0.27,
+        "endPct": 0.67,
+        "limit": 95
+      },
+      {
+        "startPct": 0.67,
+        "endPct": 0.84,
+        "limit": 85
+      },
+      {
+        "startPct": 0.84,
+        "endPct": 1.0,
+        "limit": 100
+      }
+    ]
+  },
+  {
+    "segment": "MBQ-DW",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 0.79,
+        "limit": 100
+      },
+      {
+        "startPct": 0.79,
+        "endPct": 1.0,
+        "limit": 105
+      }
+    ]
+  },
+  {
+    "segment": "DW-DI",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 1.0,
+        "limit": 105
+      }
+    ]
+  },
+  {
+    "segment": "DI-KYN",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 0.82,
+        "limit": 105
+      },
+      {
+        "startPct": 0.82,
+        "endPct": 0.89,
+        "limit": 65
+      },
+      {
+        "startPct": 0.89,
+        "endPct": 1.0,
+        "limit": 105
+      }
+    ]
+  },
+  {
+    "segment": "KYN-DI",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 1.0,
+        "limit": 105
+      }
+    ]
+  },
+  {
+    "segment": "DI-DW",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 1.0,
+        "limit": 105
+      }
+    ]
+  },
+  {
+    "segment": "DW-MBQ",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 1.0,
+        "limit": 100
+      }
+    ]
+  },
+  {
+    "segment": "MBQ-KLVA",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 0.32,
+        "limit": 100
+      },
+      {
+        "startPct": 0.31,
+        "endPct": 0.51,
+        "limit": 85
+      },
+      {
+        "startPct": 0.51,
+        "endPct": 0.77,
+        "limit": 95
+      },
+      {
+        "startPct": 0.77,
+        "endPct": 1.0,
+        "limit": 105
+      }
+    ]
+  },
+  {
+    "segment": "KLVA-TNA",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 0.87,
+        "limit": 105
+      },
+      {
+        "startPct": 0.87,
+        "endPct": 1.0,
+        "limit": 80
+      }
+    ]
+  },
+  {
+    "segment": "TNA-MLND",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 0.3,
+        "limit": 80
+      },
+      {
+        "startPct": 0.3,
+        "endPct": 1.0,
+        "limit": 105
+      }
+    ]
+  },
+  {
+    "segment": "MLND-BND",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 1.0,
+        "limit": 105
+      }
+    ]
+  },
+  {
+    "segment": "BND-VK",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 1.0,
+        "limit": 105
+      }
+    ]
+  },
+  {
+    "segment": "VK-GC",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 1.0,
+        "limit": 105
+      }
+    ]
+  },
+  {
+    "segment": "GC-CLA",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 1.0,
+        "limit": 105
+      }
+    ]
+  },
+  {
+    "segment": "CLA-SION",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 1.0,
+        "limit": 105
+      }
+    ]
+  },
+  {
+    "segment": "SION-MTN",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 1.0,
+        "limit": 105
+      }
+    ]
+  },
+  {
+    "segment": "MTN-DR",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 0.48,
+        "limit": 60
+      },
+      {
+        "startPct": 0.48,
+        "endPct": 1.0,
+        "limit": 105
+      }
+    ]
+  },
+  {
+    "segment": "DR-PR",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 0.9,
+        "limit": 105
+      },
+      {
+        "startPct": 0.9,
+        "endPct": 1.0,
+        "limit": 70
+      }
+    ]
+  },
+  {
+    "segment": "PR-BY",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 0.1,
+        "limit": 70
+      },
+      {
+        "startPct": 0.1,
+        "endPct": 0.11,
+        "limit": 70
+      },
+      {
+        "startPct": 0.11,
+        "endPct": 0.27,
+        "limit": 105
+      },
+      {
+        "startPct": 0.27,
+        "endPct": 0.45,
+        "limit": 105
+      },
+      {
+        "startPct": 0.45,
+        "endPct": 0.49,
+        "limit": 70
+      },
+      {
+        "startPct": 0.49,
+        "endPct": 0.78,
+        "limit": 105
+      },
+      {
+        "startPct": 0.78,
+        "endPct": 0.99,
+        "limit": 65
+      },
+      {
+        "startPct": 0.99,
+        "endPct": 1.0,
+        "limit": 105
+      }
+    ]
+  },
+  {
+    "segment": "BY-CSMT",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 0.21,
+        "limit": 105
+      },
+      {
+        "startPct": 0.21,
+        "endPct": 0.23,
+        "limit": 65
+      },
+      {
+        "startPct": 0.23,
+        "endPct": 0.46,
+        "limit": 105
+      },
+      {
+        "startPct": 0.46,
+        "endPct": 0.47,
+        "limit": 50
+      },
+      {
+        "startPct": 0.47,
+        "endPct": 0.71,
+        "limit": 105
+      },
+      {
+        "startPct": 0.71,
+        "endPct": 0.74,
+        "limit": 60
+      },
+      {
+        "startPct": 0.74,
+        "endPct": 0.75,
+        "limit": 105
+      },
+      {
+        "startPct": 0.75,
+        "endPct": 0.99,
+        "limit": 50
+      },
+      {
+        "startPct": 0.99,
+        "endPct": 1.0,
+        "limit": 30
+      }
+    ]
+  },
+  {
+    "segment": "KNDS-MANR",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 1.0,
+        "limit": 95
+      }
+    ]
+  },
+  {
+    "segment": "MANR-KHAG",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 0.55,
+        "limit": 95
+      },
+      {
+        "startPct": 0.55,
+        "endPct": 0.98,
+        "limit": 90
+      },
+      {
+        "startPct": 0.98,
+        "endPct": 1.0,
+        "limit": 95
+      }
+    ]
+  },
+  {
+    "segment": "KHAG-BEPR",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 0.39,
+        "limit": 95
+      },
+      {
+        "startPct": 0.39,
+        "endPct": 0.75,
+        "limit": 80
+      },
+      {
+        "startPct": 0.75,
+        "endPct": 1.0,
+        "limit": 40
+      }
+    ]
+  },
+  {
+    "segment": "BEPR-SWDV",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 0.15,
+        "limit": 45
+      },
+      {
+        "startPct": 0.15,
+        "endPct": 0.37,
+        "limit": 65
+      },
+      {
+        "startPct": 0.37,
+        "endPct": 0.8,
+        "limit": 80
+      },
+      {
+        "startPct": 0.8,
+        "endPct": 1.0,
+        "limit": 65
+      }
+    ]
+  },
+  {
+    "segment": "SWDV-NEU",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 1.0,
+        "limit": 95
+      }
+    ]
+  },
+  {
+    "segment": "NEU-JNJ",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 0.12,
+        "limit": 95
+      },
+      {
+        "startPct": 0.12,
+        "endPct": 0.16,
+        "limit": 85
+      },
+      {
+        "startPct": 0.16,
+        "endPct": 0.37,
+        "limit": 95
+      },
+      {
+        "startPct": 0.37,
+        "endPct": 0.44,
+        "limit": 90
+      },
+      {
+        "startPct": 0.44,
+        "endPct": 0.85,
+        "limit": 95
+      },
+      {
+        "startPct": 0.85,
+        "endPct": 1.0,
+        "limit": 80
+      }
+    ]
+  },
+  {
+    "segment": "JNJ-SNPD",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 0.29,
+        "limit": 80
+      },
+      {
+        "startPct": 0.29,
+        "endPct": 1.0,
+        "limit": 95
+      }
+    ]
+  },
+  {
+    "segment": "SNPD-VSH",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 0.35,
+        "limit": 95
+      },
+      {
+        "startPct": 0.35,
+        "endPct": 1.0,
+        "limit": 45
+      },
+      {
+        "startPct": 0.61,
+        "endPct": 0.91,
+        "limit": 95
+      },
+      {
+        "startPct": 0.91,
+        "endPct": 1.0,
+        "limit": 30
+      }
+    ]
+  },
+  {
+    "segment": "VSH-MNKD",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 0.1,
+        "limit": 80
+      },
+      {
+        "startPct": 0.1,
+        "endPct": 0.92,
+        "limit": 95
+      },
+      {
+        "startPct": 0.92,
+        "endPct": 1.0,
+        "limit": 50
+      }
+    ]
+  },
+  {
+    "segment": "MNKD-GV",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 0.2,
+        "limit": 50
+      },
+      {
+        "startPct": 0.2,
+        "endPct": 1.0,
+        "limit": 95
+      }
+    ]
+  },
+  {
+    "segment": "GV-CMBR",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 1.0,
+        "limit": 95
+      }
+    ]
+  },
+  {
+    "segment": "CMBR-TKNG",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 1.0,
+        "limit": 95
+      }
+    ]
+  },
+  {
+    "segment": "TKNG-CLA",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 0.42,
+        "limit": 80
+      },
+      {
+        "startPct": 0.0,
+        "endPct": 0.82,
+        "limit": 40
+      },
+      {
+        "startPct": 0.42,
+        "endPct": 1.0,
+        "limit": 40
+      }
+    ]
+  },
+  {
+    "segment": "CLA-CHF",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 1.0,
+        "limit": 80
+      }
+    ]
+  },
+  {
+    "segment": "CHF-GTBN",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 1.0,
+        "limit": 80
+      }
+    ]
+  },
+  {
+    "segment": "GTBN-VDLR",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 0.55,
+        "limit": 80
+      },
+      {
+        "startPct": 0.55,
+        "endPct": 0.7,
+        "limit": 30
+      },
+      {
+        "startPct": 0.7,
+        "endPct": 1.0,
+        "limit": 80
+      }
+    ]
+  },
+  {
+    "segment": "VDLR-SVE",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 1.0,
+        "limit": 80
+      }
+    ]
+  },
+  {
+    "segment": "SVE-CTGN",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 0.55,
+        "limit": 80
+      },
+      {
+        "startPct": 0.55,
+        "endPct": 1.0,
+        "limit": 60
+      }
+    ]
+  },
+  {
+    "segment": "CTGN-RRD",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 1.0,
+        "limit": 60
+      }
+    ]
+  },
+  {
+    "segment": "RRD-DKRD",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 1.0,
+        "limit": 60
+      }
+    ]
+  },
+  {
+    "segment": "DKRD-SNRDH",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 1.0,
+        "limit": 60
+      }
+    ]
+  },
+  {
+    "segment": "SNRDH-MSDH",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 0.45,
+        "limit": 40
+      },
+      {
+        "startPct": 0.45,
+        "endPct": 1.0,
+        "limit": 60
+      }
+    ]
+  },
+  {
+    "segment": "MSDH-CSMTH",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 0.12,
+        "limit": 60
+      },
+      {
+        "startPct": 0.12,
+        "endPct": 0.25,
+        "limit": 40
+      },
+      {
+        "startPct": 0.25,
+        "endPct": 1.0,
+        "limit": 30
+      }
+    ]
+  },
+  {
+    "segment": "CSMTH-MSDH",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 0.27,
+        "limit": 35
+      },
+      {
+        "startPct": 0.27,
+        "endPct": 0.65,
+        "limit": 40
+      },
+      {
+        "startPct": 0.65,
+        "endPct": 1.0,
+        "limit": 80
+      }
+    ]
+  },
+  {
+    "segment": "MSDH-SNRDH",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 0.58,
+        "limit": 80
+      },
+      {
+        "startPct": 0.58,
+        "endPct": 0.75,
+        "limit": 60
+      },
+      {
+        "startPct": 0.75,
+        "endPct": 1.0,
+        "limit": 40
+      }
+    ]
+  },
+  {
+    "segment": "SNRDH-DKRD",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 0.43,
+        "limit": 40
+      },
+      {
+        "startPct": 0.43,
+        "endPct": 0.5,
+        "limit": 80
+      },
+      {
+        "startPct": 0.5,
+        "endPct": 0.93,
+        "limit": 55
+      },
+      {
+        "startPct": 0.93,
+        "endPct": 1.0,
+        "limit": 80
+      }
+    ]
+  },
+  {
+    "segment": "DKRD-RRD",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 0.34,
+        "limit": 80
+      },
+      {
+        "startPct": 0.34,
+        "endPct": 0.74,
+        "limit": 50
+      },
+      {
+        "startPct": 0.74,
+        "endPct": 1.0,
+        "limit": 80
+      }
+    ]
+  },
+  {
+    "segment": "RRD-CTGN",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 0.55,
+        "limit": 80
+      },
+      {
+        "startPct": 0.55,
+        "endPct": 1.0,
+        "limit": 60
+      }
+    ]
+  },
+  {
+    "segment": "CTGN-SVE",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 0.48,
+        "limit": 60
+      },
+      {
+        "startPct": 0.48,
+        "endPct": 1.0,
+        "limit": 80
+      }
+    ]
+  },
+  {
+    "segment": "SVE-VDLR",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 1.0,
+        "limit": 80
+      }
+    ]
+  },
+  {
+    "segment": "VDLR-GTBN",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 1.0,
+        "limit": 80
+      }
+    ]
+  },
+  {
+    "segment": "GTBN-CHF",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 1.0,
+        "limit": 80
+      }
+    ]
+  },
+  {
+    "segment": "CHF-CLA",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 1.0,
+        "limit": 80
+      }
+    ]
+  },
+  {
+    "segment": "CLA-TKNG",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 0.22,
+        "limit": 80
+      },
+      {
+        "startPct": 0.22,
+        "endPct": 0.55,
+        "limit": 40
+      },
+      {
+        "startPct": 0.55,
+        "endPct": 1.0,
+        "limit": 80
+      }
+    ]
+  },
+  {
+    "segment": "TKNG-CMBR",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 1.0,
+        "limit": 95
+      }
+    ]
+  },
+  {
+    "segment": "CMBR-GV",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 1.0,
+        "limit": 95
+      }
+    ]
+  },
+  {
+    "segment": "GV-MNKD",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 0.74,
+        "limit": 95
+      },
+      {
+        "startPct": 0.74,
+        "endPct": 1.0,
+        "limit": 50
+      }
+    ]
+  },
+  {
+    "segment": "MNKD-VSH",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 0.07,
+        "limit": 50
+      },
+      {
+        "startPct": 0.07,
+        "endPct": 0.95,
+        "limit": 95
+      },
+      {
+        "startPct": 0.95,
+        "endPct": 1.0,
+        "limit": 45
+      }
+    ]
+  },
+  {
+    "segment": "VSH-SNPD",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 0.1,
+        "limit": 45
+      },
+      {
+        "startPct": 0.1,
+        "endPct": 0.4,
+        "limit": 30
+      },
+      {
+        "startPct": 0.4,
+        "endPct": 1.0,
+        "limit": 85
+      }
+    ]
+  },
+  {
+    "segment": "SNPD-JNJ",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 0.75,
+        "limit": 85
+      },
+      {
+        "startPct": 0.75,
+        "endPct": 1.0,
+        "limit": 55
+      }
+    ]
+  },
+  {
+    "segment": "JNJ-NEU",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 0.09,
+        "limit": 85
+      },
+      {
+        "startPct": 0.09,
+        "endPct": 0.5,
+        "limit": 80
+      },
+      {
+        "startPct": 0.5,
+        "endPct": 1.0,
+        "limit": 95
+      }
+    ]
+  },
+  {
+    "segment": "NEU-SWDV",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 0.12,
+        "limit": 95
+      },
+      {
+        "startPct": 0.12,
+        "endPct": 0.39,
+        "limit": 30
+      },
+      {
+        "startPct": 0.39,
+        "endPct": 0.65,
+        "limit": 90
+      },
+      {
+        "startPct": 0.65,
+        "endPct": 1.0,
+        "limit": 80
+      }
+    ]
+  },
+  {
+    "segment": "SWDV-BEPR",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 0.17,
+        "limit": 80
+      },
+      {
+        "startPct": 0.17,
+        "endPct": 0.29,
+        "limit": 95
+      },
+      {
+        "startPct": 0.29,
+        "endPct": 0.72,
+        "limit": 80
+      },
+      {
+        "startPct": 0.72,
+        "endPct": 0.77,
+        "limit": 95
+      },
+      {
+        "startPct": 0.77,
+        "endPct": 0.84,
+        "limit": 65
+      },
+      {
+        "startPct": 0.84,
+        "endPct": 1.0,
+        "limit": 45
+      }
+    ]
+  },
+  {
+    "segment": "BEPR-KHAG",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 0.13,
+        "limit": 45
+      },
+      {
+        "startPct": 0.13,
+        "endPct": 0.79,
+        "limit": 80
+      },
+      {
+        "startPct": 0.79,
+        "endPct": 1.0,
+        "limit": 95
+      }
+    ]
+  },
+  {
+    "segment": "KHAG-MANR",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 0.14,
+        "limit": 95
+      },
+      {
+        "startPct": 0.14,
+        "endPct": 0.56,
+        "limit": 90
+      },
+      {
+        "startPct": 0.56,
+        "endPct": 1.0,
+        "limit": 95
+      }
+    ]
+  },
+  {
+    "segment": "MANR-KNDS",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 0.46,
+        "limit": 95
+      },
+      {
+        "startPct": 0.46,
+        "endPct": 0.86,
+        "limit": 90
+      },
+      {
+        "startPct": 0.86,
+        "endPct": 1.0,
+        "limit": 95
+      }
+    ]
+  },
+  {
+    "segment": "KNDS-PNVL",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 1.0,
+        "limit": 95
+      }
+    ]
+  },
+  {
+    "segment": "KYN-THK",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 0.2,
+        "limit": 100
+      },
+      {
+        "startPct": 0.2,
+        "endPct": 0.37,
+        "limit": 65
+      },
+      {
+        "startPct": 0.37,
+        "endPct": 1.0,
+        "limit": 100
+      }
+    ]
+  },
+  {
+    "segment": "THK-DI",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 1.0,
+        "limit": 100
+      }
+    ]
+  },
+  {
+    "segment": "DI-KOPR",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 1.0,
+        "limit": 100
+      }
+    ]
+  },
+  {
+    "segment": "KOPR-DW",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 1.0,
+        "limit": 100
+      }
+    ]
+  },
+  {
+    "segment": "DW-MBQ",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 0.67,
+        "limit": 100
+      },
+      {
+        "startPct": 0.67,
+        "endPct": 1.0,
+        "limit": 80
+      }
+    ]
+  },
+  {
+    "segment": "MBQ-KLVA",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 0.04,
+        "limit": 80
+      },
+      {
+        "startPct": 0.04,
+        "endPct": 0.31,
+        "limit": 100
+      },
+      {
+        "startPct": 0.31,
+        "endPct": 0.41,
+        "limit": 85
+      },
+      {
+        "startPct": 0.41,
+        "endPct": 1.0,
+        "limit": 100
+      }
+    ]
+  },
+  {
+    "segment": "KLVA-TNA",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 0.64,
+        "limit": 100
+      },
+      {
+        "startPct": 0.64,
+        "endPct": 0.8,
+        "limit": 70
+      },
+      {
+        "startPct": 0.8,
+        "endPct": 1.0,
+        "limit": 100
+      }
+    ]
+  },
+  {
+    "segment": "TNA-MLND",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 0.78,
+        "limit": 100
+      },
+      {
+        "startPct": 0.78,
+        "endPct": 0.9,
+        "limit": 65
+      },
+      {
+        "startPct": 0.9,
+        "endPct": 1.0,
+        "limit": 100
+      }
+    ]
+  },
+  {
+    "segment": "MLND-NHR",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 1.0,
+        "limit": 100
+      }
+    ]
+  },
+  {
+    "segment": "NHR-BND",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 1.0,
+        "limit": 100
+      }
+    ]
+  },
+  {
+    "segment": "BND-KJMG",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 1.0,
+        "limit": 100
+      }
+    ]
+  },
+  {
+    "segment": "KJMG-VK",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 1.0,
+        "limit": 100
+      }
+    ]
+  },
+  {
+    "segment": "VK-GC",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 1.0,
+        "limit": 100
+      }
+    ]
+  },
+  {
+    "segment": "GC-VVH",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 0.52,
+        "limit": 100
+      },
+      {
+        "startPct": 0.52,
+        "endPct": 0.82,
+        "limit": 65
+      },
+      {
+        "startPct": 0.82,
+        "endPct": 1.0,
+        "limit": 100
+      }
+    ]
+  },
+  {
+    "segment": "VVH-CLA",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 1.0,
+        "limit": 100
+      }
+    ]
+  },
+  {
+    "segment": "CLA-SION",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 1.0,
+        "limit": 100
+      }
+    ]
+  },
+  {
+    "segment": "SION-MTN",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 0.68,
+        "limit": 100
+      },
+      {
+        "startPct": 0.68,
+        "endPct": 0.91,
+        "limit": 65
+      },
+      {
+        "startPct": 0.91,
+        "endPct": 1.0,
+        "limit": 100
+      }
+    ]
+  },
+  {
+    "segment": "MTN-DR",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 1.0,
+        "limit": 100
+      }
+    ]
+  },
+  {
+    "segment": "DR-PR",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 1.0,
+        "limit": 100
+      }
+    ]
+  },
+  {
+    "segment": "PR-CRD",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 1.0,
+        "limit": 100
+      }
+    ]
+  },
+  {
+    "segment": "CRD-CHG",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 1.0,
+        "limit": 100
+      }
+    ]
+  },
+  {
+    "segment": "CHG-BY",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 1.0,
+        "limit": 100
+      }
+    ]
+  },
+  {
+    "segment": "BY-SNRD",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 1.0,
+        "limit": 100
+      }
+    ]
+  },
+  {
+    "segment": "SNRD-MSD",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 1.0,
+        "limit": 100
+      }
+    ]
+  },
+  {
+    "segment": "MSD-CSMT",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 1.0,
+        "limit": 30
+      }
+    ]
+  },
+  {
+    "segment": "CSMT-MSD",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 0.57,
+        "limit": 30
+      },
+      {
+        "startPct": 0.57,
+        "endPct": 0.82,
+        "limit": 40
+      },
+      {
+        "startPct": 0.82,
+        "endPct": 1.0,
+        "limit": 100
+      }
+    ]
+  },
+  {
+    "segment": "MSD-SNRD",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 1.0,
+        "limit": 100
+      }
+    ]
+  },
+  {
+    "segment": "SNRD-BY",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 0.51,
+        "limit": 100
+      },
+      {
+        "startPct": 0.51,
+        "endPct": 0.59,
+        "limit": 80
+      },
+      {
+        "startPct": 0.59,
+        "endPct": 1.0,
+        "limit": 100
+      }
+    ]
+  },
+  {
+    "segment": "BY-CHG",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 1.0,
+        "limit": 100
+      }
+    ]
+  },
+  {
+    "segment": "CHG-CRD",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 1.0,
+        "limit": 100
+      }
+    ]
+  },
+  {
+    "segment": "CRD-PR",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 1.0,
+        "limit": 100
+      }
+    ]
+  },
+  {
+    "segment": "PR-DR",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 1.0,
+        "limit": 100
+      }
+    ]
+  },
+  {
+    "segment": "DR-MTN",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 1.0,
+        "limit": 100
+      }
+    ]
+  },
+  {
+    "segment": "MTN-SION",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 1.0,
+        "limit": 100
+      }
+    ]
+  },
+  {
+    "segment": "SION-CLA",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 1.0,
+        "limit": 100
+      }
+    ]
+  },
+  {
+    "segment": "CLA-VVH",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 1.0,
+        "limit": 100
+      }
+    ]
+  },
+  {
+    "segment": "VVH-GC",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 1.0,
+        "limit": 100
+      }
+    ]
+  },
+  {
+    "segment": "GC-VK",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 1.0,
+        "limit": 100
+      }
+    ]
+  },
+  {
+    "segment": "VK-KJMG",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 1.0,
+        "limit": 100
+      }
+    ]
+  },
+  {
+    "segment": "KJMG-BND",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 1.0,
+        "limit": 100
+      }
+    ]
+  },
+  {
+    "segment": "BND-NHR",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 0.7,
+        "limit": 100
+      },
+      {
+        "startPct": 0.7,
+        "endPct": 1.0,
+        "limit": 50
+      }
+    ]
+  },
+  {
+    "segment": "NHR-MLND",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 0.37,
+        "limit": 50
+      },
+      {
+        "startPct": 0.37,
+        "endPct": 1.0,
+        "limit": 100
+      }
+    ]
+  },
+  {
+    "segment": "MLND-TNA",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 0.98,
+        "limit": 100
+      },
+      {
+        "startPct": 0.98,
+        "endPct": 1.0,
+        "limit": 70
+      }
+    ]
+  },
+  {
+    "segment": "TNA-KLVA",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 0.2,
+        "limit": 70
+      },
+      {
+        "startPct": 0.2,
+        "endPct": 1.0,
+        "limit": 100
+      }
+    ]
+  },
+  {
+    "segment": "KLVA-MBQ",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 0.56,
+        "limit": 100
+      },
+      {
+        "startPct": 0.56,
+        "endPct": 0.7,
+        "limit": 85
+      },
+      {
+        "startPct": 0.7,
+        "endPct": 0.77,
+        "limit": 100
+      },
+      {
+        "startPct": 0.77,
+        "endPct": 1.0,
+        "limit": 80
+      }
+    ]
+  },
+  {
+    "segment": "MBQ-DW",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 0.35,
+        "limit": 80
+      },
+      {
+        "startPct": 0.35,
+        "endPct": 1.0,
+        "limit": 100
+      }
+    ]
+  },
+  {
+    "segment": "DW-KOPR",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 1.0,
+        "limit": 100
+      }
+    ]
+  },
+  {
+    "segment": "KOPR-DI",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 0.9,
+        "limit": 100
+      },
+      {
+        "startPct": 0.9,
+        "endPct": 1.0,
+        "limit": 50
+      }
+    ]
+  },
+  {
+    "segment": "DI-THK",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 0.12,
+        "limit": 50
+      },
+      {
+        "startPct": 0.12,
+        "endPct": 0.75,
+        "limit": 100
+      },
+      {
+        "startPct": 0.75,
+        "endPct": 1.0,
+        "limit": 70
+      }
+    ]
+  },
+  {
+    "segment": "THK-KYN",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 0.08,
+        "limit": 70
+      },
+      {
+        "startPct": 0.08,
+        "endPct": 0.77,
+        "limit": 100
+      },
+      {
+        "startPct": 0.77,
+        "endPct": 0.85,
+        "limit": 55
+      },
+      {
+        "startPct": 0.85,
+        "endPct": 1.0,
+        "limit": 100
+      }
+    ]
+  },
+  {
+    "segment": "KYN-VLDI",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 0.02,
+        "limit": 40
+      },
+      {
+        "startPct": 0.02,
+        "endPct": 1.0,
+        "limit": 105
+      }
+    ]
+  },
+  {
+    "segment": "VLDI-ULNR",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 1.0,
+        "limit": 105
+      }
+    ]
+  },
+  {
+    "segment": "ULNR-ABH",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 0.74,
+        "limit": 105
+      },
+      {
+        "startPct": 0.74,
+        "endPct": 1.0,
+        "limit": 95
+      }
+    ]
+  },
+  {
+    "segment": "ABH-BUD",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 0.04,
+        "limit": 95
+      },
+      {
+        "startPct": 0.04,
+        "endPct": 0.93,
+        "limit": 105
+      },
+      {
+        "startPct": 0.93,
+        "endPct": 1.0,
+        "limit": 90
+      }
+    ]
+  },
+  {
+    "segment": "BUD-VGI",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 0.03,
+        "limit": 85
+      },
+      {
+        "startPct": 0.03,
+        "endPct": 1.0,
+        "limit": 105
+      }
+    ]
+  },
+  {
+    "segment": "VGI-SHELU",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 1.0,
+        "limit": 105
+      }
+    ]
+  },
+  {
+    "segment": "SHELU-NRL",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 1.0,
+        "limit": 105
+      }
+    ]
+  },
+  {
+    "segment": "NRL-BVS",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 1.0,
+        "limit": 105
+      }
+    ]
+  },
+  {
+    "segment": "BVS-KJT",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 1.0,
+        "limit": 105
+      }
+    ]
+  },
+  {
+    "segment": "KJT-PDI",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 1.0,
+        "limit": 80
+      }
+    ]
+  },
+  {
+    "segment": "PDI-KLY",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 0.22,
+        "limit": 90
+      },
+      {
+        "startPct": 0.22,
+        "endPct": 0.48,
+        "limit": 70
+      },
+      {
+        "startPct": 0.48,
+        "endPct": 1.0,
+        "limit": 90
+      }
+    ]
+  },
+  {
+    "segment": "KLY-DLY",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 1.0,
+        "limit": 90
+      }
+    ]
+  },
+  {
+    "segment": "DLY-LWJ",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 1.0,
+        "limit": 90
+      }
+    ]
+  },
+  {
+    "segment": "LWJ-KHPI",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 0.53,
+        "limit": 90
+      },
+      {
+        "startPct": 0.53,
+        "endPct": 1.0,
+        "limit": 30
+      }
+    ]
+  },
+  {
+    "segment": "KHPI-LWJ",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 0.47,
+        "limit": 30
+      },
+      {
+        "startPct": 0.47,
+        "endPct": 1.0,
+        "limit": 90
+      }
+    ]
+  },
+  {
+    "segment": "LWJ-DLY",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 1.0,
+        "limit": 90
+      }
+    ]
+  },
+  {
+    "segment": "DLY-KLY",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 1.0,
+        "limit": 90
+      }
+    ]
+  },
+  {
+    "segment": "KLY-PDI",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 0.52,
+        "limit": 90
+      },
+      {
+        "startPct": 0.52,
+        "endPct": 0.78,
+        "limit": 70
+      },
+      {
+        "startPct": 0.78,
+        "endPct": 1.0,
+        "limit": 90
+      }
+    ]
+  },
+  {
+    "segment": "PDI-KJT",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 1.0,
+        "limit": 80
+      }
+    ]
+  },
+  {
+    "segment": "KJT-BVS",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 1.0,
+        "limit": 105
+      }
+    ]
+  },
+  {
+    "segment": "BVS-NRL",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 1.0,
+        "limit": 105
+      }
+    ]
+  },
+  {
+    "segment": "NRL-SHELU",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 1.0,
+        "limit": 105
+      }
+    ]
+  },
+  {
+    "segment": "SHELU-VGI",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 1.0,
+        "limit": 105
+      }
+    ]
+  },
+  {
+    "segment": "VGI-BUD",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 0.86,
+        "limit": 105
+      },
+      {
+        "startPct": 0.86,
+        "endPct": 0.95,
+        "limit": 85
+      },
+      {
+        "startPct": 0.95,
+        "endPct": 1.0,
+        "limit": 90
+      }
+    ]
+  },
+  {
+    "segment": "BUD-ABH",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 1.0,
+        "limit": 105
+      }
+    ]
+  },
+  {
+    "segment": "ABH-ULNR",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 1.0,
+        "limit": 105
+      }
+    ]
+  },
+  {
+    "segment": "ULNR-VLDI",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 1.0,
+        "limit": 105
+      }
+    ]
+  },
+  {
+    "segment": "VLDI-KYN",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 1.0,
+        "limit": 105
+      }
+    ]
+  },
+  {
+    "segment": "KSRA-OMB",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 0.23,
+        "limit": 75
+      },
+      {
+        "startPct": 0.23,
+        "endPct": 1.0,
+        "limit": 105
+      }
+    ]
+  },
+  {
+    "segment": "OMB-KE",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 0.51,
+        "limit": 105
+      },
+      {
+        "startPct": 0.43,
+        "endPct": 0.59,
+        "limit": 100
+      },
+      {
+        "startPct": 0.59,
+        "endPct": 0.84,
+        "limit": 105
+      },
+      {
+        "startPct": 0.84,
+        "endPct": 1.0,
+        "limit": 80
+      }
+    ]
+  },
+  {
+    "segment": "KE-THS",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 1.0,
+        "limit": 105
+      }
+    ]
+  },
+  {
+    "segment": "THS-ATG",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 0.82,
+        "limit": 105
+      },
+      {
+        "startPct": 0.82,
+        "endPct": 0.88,
+        "limit": 80
+      },
+      {
+        "startPct": 0.88,
+        "endPct": 1.0,
+        "limit": 105
+      }
+    ]
+  },
+  {
+    "segment": "ATG-ASO",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 0.28,
+        "limit": 105
+      },
+      {
+        "startPct": 0.28,
+        "endPct": 0.37,
+        "limit": 85
+      },
+      {
+        "startPct": 0.37,
+        "endPct": 0.48,
+        "limit": 100
+      },
+      {
+        "startPct": 0.48,
+        "endPct": 1.0,
+        "limit": 105
+      }
+    ]
+  },
+  {
+    "segment": "ASO-VSD",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 0.81,
+        "limit": 105
+      },
+      {
+        "startPct": 0.76,
+        "endPct": 0.9,
+        "limit": 75
+      },
+      {
+        "startPct": 0.9,
+        "endPct": 1.0,
+        "limit": 105
+      }
+    ]
+  },
+  {
+    "segment": "VSD-KDV",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 0.85,
+        "limit": 105
+      },
+      {
+        "startPct": 0.85,
+        "endPct": 0.91,
+        "limit": 85
+      },
+      {
+        "startPct": 0.91,
+        "endPct": 1.0,
+        "limit": 105
+      }
+    ]
+  },
+  {
+    "segment": "KDV-TLA",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 0.77,
+        "limit": 105
+      },
+      {
+        "startPct": 0.77,
+        "endPct": 0.87,
+        "limit": 90
+      },
+      {
+        "startPct": 0.87,
+        "endPct": 0.94,
+        "limit": 105
+      },
+      {
+        "startPct": 0.94,
+        "endPct": 1.0,
+        "limit": 85
+      }
+    ]
+  },
+  {
+    "segment": "TLA-ABY",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 0.07,
+        "limit": 85
+      },
+      {
+        "startPct": 0.07,
+        "endPct": 1.0,
+        "limit": 105
+      }
+    ]
+  },
+  {
+    "segment": "ABY-SHD",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 1.0,
+        "limit": 105
+      }
+    ]
+  },
+  {
+    "segment": "SHD-KYN",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 0.34,
+        "limit": 105
+      },
+      {
+        "startPct": 0.34,
+        "endPct": 0.45,
+        "limit": 60
+      },
+      {
+        "startPct": 0.45,
+        "endPct": 1.0,
+        "limit": 105
+      }
+    ]
+  },
+  {
+    "segment": "KYN-SHD",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 0.29,
+        "limit": 105
+      },
+      {
+        "startPct": 0.29,
+        "endPct": 0.39,
+        "limit": 90
+      },
+      {
+        "startPct": 0.39,
+        "endPct": 1.0,
+        "limit": 105
+      }
+    ]
+  },
+  {
+    "segment": "SHD-ABY",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 1.0,
+        "limit": 105
+      }
+    ]
+  },
+  {
+    "segment": "ABY-TLA",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 0.91,
+        "limit": 105
+      },
+      {
+        "startPct": 0.91,
+        "endPct": 1.0,
+        "limit": 85
+      }
+    ]
+  },
+  {
+    "segment": "TLA-KDV",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 0.04,
+        "limit": 85
+      },
+      {
+        "startPct": 0.04,
+        "endPct": 0.93,
+        "limit": 105
+      },
+      {
+        "startPct": 0.93,
+        "endPct": 1.0,
+        "limit": 90
+      }
+    ]
+  },
+  {
+    "segment": "KDV-VSD",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 1.0,
+        "limit": 105
+      }
+    ]
+  },
+  {
+    "segment": "VSD-ASO",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 0.07,
+        "limit": 80
+      },
+      {
+        "startPct": 0.07,
+        "endPct": 1.0,
+        "limit": 105
+      }
+    ]
+  },
+  {
+    "segment": "ASO-ATG",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 0.49,
+        "limit": 105
+      },
+      {
+        "startPct": 0.49,
+        "endPct": 0.67,
+        "limit": 80
+      },
+      {
+        "startPct": 0.67,
+        "endPct": 1.0,
+        "limit": 105
+      }
+    ]
+  },
+  {
+    "segment": "ATG-THS",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 0.06,
+        "limit": 105
+      },
+      {
+        "startPct": 0.06,
+        "endPct": 0.14,
+        "limit": 85
+      },
+      {
+        "startPct": 0.14,
+        "endPct": 1.0,
+        "limit": 105
+      }
+    ]
+  },
+  {
+    "segment": "THS-KE",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 1.0,
+        "limit": 105
+      }
+    ]
+  },
+  {
+    "segment": "KE-OMB",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 1.0,
+        "limit": 105
+      }
+    ]
+  }
+]
