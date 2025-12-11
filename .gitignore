@@ -1,0 +1,41 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+.venv/
+.venv314/
+ENV/
+env/
+*.egg-info/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Excel temp files
+~$*.xlsx
+~$*.xls
+
+# Logs
+*.log
+
+# Database
+*.db
+*.sqlite
+
+# Test data (keep only reference files)
+*.csv
+test_*.xlsx
+
+# Keep example data
+!28-11-25*.xlsx
