@@ -73,7 +73,7 @@
         font-size: 0.85rem;
       }
       .content {
-        margin-top: -30px;
+        margin-top: 24px;
       }
       .card {
         background: var(--card);
@@ -217,6 +217,33 @@
         height: 320px;
         cursor: crosshair;
       }
+      .brakefeel-chart {
+        width: 100%;
+        height: 260px;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+      }
+      .segment-charts {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+      }
+      .segment-chart {
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 12px 14px;
+        background: #fdfdff;
+      }
+      .segment-title {
+        font-size: 0.92rem;
+        font-weight: 600;
+        margin-bottom: 8px;
+        color: var(--brand);
+      }
+      .segment-chart-inner {
+        width: 100%;
+        height: 220px;
+      }
       .subtle {
         color: var(--muted);
         font-size: 0.85rem;
@@ -236,11 +263,11 @@
     <div class="page-shell">
       <header>
         <div>
-          <div class="badge">Central Railway • SPM</div>
+          <div class="badge">Central Railway • BB Divn-Suburban • SPM</div>
           <h1>Suburban Performance Monitor</h1>
           <span>Upload SPM runs, select staff, and review train performance visually.</span>
         </div>
-        <div class="badge">Beta Workspace</div>
+        <div class="badge">BB TRSO - Digital Workplace</div>
       </header>
 
       <main class="content">
@@ -323,17 +350,17 @@
 
         <section class="card">
           <div class="panel-header">
-            <span>Summary Table</span>
-            <span class="subtle">First 15 rows</span>
+            <span>Platform Entry Speeds</span>
+            <span class="subtle">Station halt data</span>
           </div>
           <div class="table-wrapper">
             <table id="dataTable">
               <thead>
                 <tr>
-                  <th>Time</th>
-                  <th>Speed (km/h)</th>
-                  <th>Distance (km)</th>
-                  <th>Event</th>
+                  <th>Station</th>
+                  <th>PF Entry</th>
+                  <th>Mid PF</th>
+                  <th>1 Coach</th>
                 </tr>
               </thead>
               <tbody></tbody>
@@ -343,7 +370,7 @@
 
         <section class="card">
           <div class="panel-header">
-            <span>Railway Line Diagram</span>
+            <span>Platform Entry Overview</span>
             <span class="subtle">Platform entry speeds • Green: ≤43 km/h • Red: >43 km/h</span>
           </div>
           <div style="width: 100%; height: 150px;">
@@ -357,6 +384,28 @@
             <span class="subtle">Distance vs Speed</span>
           </div>
           <div id="chart"></div>
+        </section>
+        <section class="card">
+          <div class="panel-header">
+            <span>Segmented Speed Profiles</span>
+            <span class="subtle">Same chart split into 4-5 station windows</span>
+          </div>
+          <div id="segmentCharts" class="segment-charts"></div>
+        </section>
+        <section class="card">
+          <div class="panel-header">
+            <span>Platform Entry Analysis</span>
+            <span class="subtle">Speed progression from platform entry to halt</span>
+          </div>
+          <div id="platformEntryCharts" class="segment-charts"></div>
+        </section>
+        <section class="card">
+          <div class="panel-header">
+            <span>Brake Feel Test</span>
+            <span class="subtle">Acceleration → braking → recovery window</span>
+          </div>
+          <div id="brakeFeelStatus" class="subtle" style="margin-bottom:8px;">Brake feel detection pending...</div>
+          <div id="brakeFeelChart" class="brakefeel-chart"></div>
         </section>
       </main>
     </div>
@@ -375,16 +424,20 @@
         rows.forEach((row) => {
           const tr = document.createElement("tr");
           tr.innerHTML = `
-            <td>${row.time}</td>
-            <td>${row.speed}</td>
-            <td>${row.distance}</td>
-            <td>${row.event}</td>
+            <td>${row.station}</td>
+            <td>${row.pf_entry !== null && row.pf_entry !== undefined ? row.pf_entry : '-'}</td>
+            <td>${row.mid_pf !== null && row.mid_pf !== undefined ? row.mid_pf : '-'}</td>
+            <td>${row.one_coach !== null && row.one_coach !== undefined ? row.one_coach : '-'}</td>
           `;
           tbody.appendChild(tr);
         });
       };
 
       let chart = null;
+      let segmentCharts = [];
+      let platformEntryCharts = [];
+      let brakeFeelChart = null;
+      const brakeFeelStatusEl = document.getElementById("brakeFeelStatus");
 
       function initChart() {
         const chartEl = document.getElementById("chart");
@@ -392,6 +445,536 @@
           chart = echarts.init(chartEl);
         }
         return chart;
+      }
+
+      function disposeSegmentCharts() {
+        segmentCharts.forEach((c) => c.dispose());
+        segmentCharts = [];
+        const container = document.getElementById("segmentCharts");
+        if (container) {
+          container.innerHTML = "";
+        }
+      }
+
+      function disposePlatformEntryCharts() {
+        platformEntryCharts.forEach((c) => c.dispose());
+        platformEntryCharts = [];
+        const container = document.getElementById("platformEntryCharts");
+        if (container) {
+          container.innerHTML = "";
+        }
+      }
+
+      function disposeBrakeFeelChart() {
+        if (brakeFeelChart) {
+          brakeFeelChart.dispose();
+          brakeFeelChart = null;
+        }
+        const container = document.getElementById("brakeFeelChart");
+        if (container) {
+          container.innerHTML = "";
+        }
+        if (brakeFeelStatusEl) {
+          brakeFeelStatusEl.textContent = "Brake feel detection pending...";
+        }
+      }
+
+      function buildStationGroups(markers, chunkSize = 5) {
+        if (!markers || markers.length === 0) return [];
+
+        const sorted = [...markers].sort(
+          (a, b) => a.sample_index - b.sample_index
+        );
+
+        const groups = [];
+        let i = 0;
+        while (i < sorted.length) {
+          const end = Math.min(i + chunkSize, sorted.length);
+          let group = sorted.slice(i, end);
+
+          if (group.length === 1 && groups.length > 0) {
+            groups[groups.length - 1] =
+              groups[groups.length - 1].concat(group);
+          } else {
+            groups.push(group);
+          }
+
+          if (group.length >= 2) {
+            i += chunkSize - 1;
+          } else {
+            i = end;
+          }
+        }
+
+        if (groups.length > 1 && groups[groups.length - 1].length === 1) {
+          groups[groups.length - 2] = groups[groups.length - 2].concat(
+            groups.pop()
+          );
+        }
+
+        return groups.filter((group) => group.length >= 2);
+      }
+
+      function renderSegmentCharts(samples, markers, brakeTests = []) {
+        disposeSegmentCharts();
+
+        let workingMarkers = markers;
+        if (!workingMarkers || workingMarkers.length < 2) {
+          if (!samples || samples.length < 2) {
+            return;
+          }
+          const syntheticCount = 4;
+          const step = Math.floor(samples.length / syntheticCount);
+          workingMarkers = [];
+          for (let i = 0; i <= syntheticCount; i++) {
+            const sampleIndex = Math.min(i * step, samples.length - 1);
+            workingMarkers.push({
+              station: i === 0 ? "Start" : i === syntheticCount ? "End" : `Segment ${i}`,
+              sample_index: sampleIndex,
+              platform_entry_speed: null,
+              mid_platform_speed: null,
+              one_coach_speed: null,
+            });
+          }
+        }
+
+        const stationGroups = buildStationGroups(workingMarkers);
+        if (!stationGroups.length) {
+          return;
+        }
+
+        const container = document.getElementById("segmentCharts");
+        stationGroups.forEach((group, idx) => {
+          const startIdx = Math.max(group[0].sample_index, 0);
+          const endIdx = Math.min(
+            group[group.length - 1].sample_index,
+            samples.length - 1
+          );
+          const segmentSamples = samples.slice(startIdx, endIdx + 1);
+
+          if (segmentSamples.length < 2) {
+            return;
+          }
+
+          const chartWrapper = document.createElement("div");
+          chartWrapper.className = "segment-chart";
+          chartWrapper.id = `segment-chart-${idx}`;
+
+          const title = document.createElement("div");
+          title.className = "segment-title";
+          const firstStation = group[0].station;
+          const lastStation = group[group.length - 1].station;
+          title.textContent = `${idx + 1}. ${firstStation} → ${lastStation}`;
+
+          chartWrapper.appendChild(title);
+          const chartDiv = document.createElement("div");
+          chartDiv.className = "segment-chart-inner";
+          chartWrapper.appendChild(chartDiv);
+          container.appendChild(chartWrapper);
+
+          const segmentChart = echarts.init(chartDiv);
+          segmentCharts.push(segmentChart);
+
+          const segmentDistances = segmentSamples.map((s) =>
+            s.cumulative_distance ? s.cumulative_distance.toFixed(1) : "0.0"
+          );
+          const segmentSpeeds = segmentSamples.map((s) => s.speed);
+          const segmentPSR = segmentSamples.map((s) => s.psr || null);
+          const hasPSR = segmentPSR.some((v) => v !== null);
+
+          const markLines = group.map((marker) => ({
+            xAxis: marker.sample_index - startIdx,
+            label: {
+              formatter: marker.station,
+              position: "insideEndTop",
+              fontSize: 9,
+              color: "#333",
+            },
+            lineStyle: {
+              color: "#999",
+              type: "dashed",
+            },
+          }));
+
+          const series = [];
+          if (hasPSR) {
+            series.push({
+              name: "MPS/PSR",
+              type: "line",
+              data: segmentPSR,
+              smooth: false,
+              lineStyle: { color: "#00c800", width: 1 },
+              areaStyle: { color: "rgba(0, 200, 0, 0.25)" },
+              showSymbol: false,
+              z: 1,
+            });
+          }
+
+          series.push({
+            name: "Speed",
+            type: "line",
+            data: segmentSpeeds,
+            smooth: false,
+            lineStyle: { color: "#007bff", width: 2 },
+            areaStyle: { color: "rgba(0, 123, 255, 0.1)" },
+            symbol: "circle",
+            symbolSize: 4,
+            z: 2,
+            markLine: markLines.length
+              ? {
+                  data: markLines,
+                }
+              : undefined,
+          });
+
+          const segmentBrakeAreas = (brakeTests || [])
+            .filter(
+              (test) =>
+                test.end_index >= startIdx &&
+                test.start_index <= endIdx
+            )
+            .map((test) => {
+              const clampedStart = Math.max(test.start_index - startIdx, 0);
+              const clampedEnd = Math.min(
+                test.end_index - startIdx,
+                segmentSamples.length - 1
+              );
+              return [
+                {
+                  xAxis: clampedStart,
+                  itemStyle: { color: "rgba(255,0,0,0.08)" },
+                },
+                { xAxis: clampedEnd },
+              ];
+            });
+
+          if (segmentBrakeAreas.length) {
+            series.push({
+              name: "Brake Feel Test",
+              type: "line",
+              data: [],
+              markArea: {
+                silent: true,
+                data: segmentBrakeAreas,
+              },
+            });
+          }
+
+          segmentChart.setOption({
+            tooltip: { trigger: "axis" },
+            legend: {
+              data: hasPSR
+                ? ["Speed", "MPS/PSR", "Brake Feel Test"]
+                : ["Speed", "Brake Feel Test"],
+            },
+            grid: {
+              left: "3%",
+              right: "4%",
+              bottom: "8%",
+              containLabel: true,
+            },
+            xAxis: {
+              type: "category",
+              data: segmentDistances,
+              axisLabel: { fontSize: 9 },
+            },
+            yAxis: {
+              type: "value",
+              name: "Speed (km/h)",
+              nameLocation: "middle",
+              nameGap: 35,
+              axisLabel: { fontSize: 9 },
+            },
+            series,
+          });
+        });
+      }
+
+      function renderPlatformEntryCharts(samples, markers, platformEntryData) {
+        disposePlatformEntryCharts();
+
+        if (!markers || !platformEntryData) {
+          return;
+        }
+
+        // Filter markers to only include stations with platform entry data
+        const validMarkers = markers.filter(m =>
+          m.platform_entry_speed !== null &&
+          m.platform_entry_speed !== 0 &&
+          platformEntryData[m.station]
+        );
+
+        if (validMarkers.length === 0) {
+          return;
+        }
+
+        const container = document.getElementById("platformEntryCharts");
+
+        // Check if samples are in meters or km
+        const maxDistance = Math.max(...samples.map(s => s.cumulative_distance));
+        const sampleInMeters = maxDistance > 100;
+
+        // Combine ALL stations in ONE chart
+        const stationsToRender = validMarkers;  // All halts
+        const colors = ['#4285f4', '#ea4335', '#fbbc05', '#34a853', '#9c27b0', '#ff6b6b', '#4ecdc4', '#45b7d1', '#f9ca24', '#6c5ce7'];
+        const allSeries = [];
+        const stationNames = [];
+
+        stationsToRender.forEach((marker, idx) => {
+          const stationName = marker.station;
+          const entryData = platformEntryData[stationName];
+
+          if (!entryData) return;
+
+          const haltDistanceKm = entryData.halt_distance;
+          const entryDistanceKm = entryData.entry_distance;
+
+          // Convert to same units as samples
+          const haltDistance = sampleInMeters ? haltDistanceKm * 1000 : haltDistanceKm;
+          const entryDistance = sampleInMeters ? entryDistanceKm * 1000 : entryDistanceKm;
+
+          // Find all samples between entry and halt
+          const stationSamples = samples.filter(s => {
+            const dist = s.cumulative_distance;
+            return dist >= entryDistance && dist <= haltDistance;
+          });
+
+          if (stationSamples.length < 2) return;
+
+          // Prepare data for this station
+          const dataPoints = [];
+
+          for (let s of stationSamples) {
+            const distFromHalt = haltDistance - s.cumulative_distance;
+            if (distFromHalt < 0) break;
+
+            const distFromHaltMeters = sampleInMeters ? distFromHalt : distFromHalt * 1000;
+            dataPoints.push([Math.round(distFromHaltMeters), s.speed]);
+
+            if (s.speed === 0) break;
+          }
+
+          if (dataPoints.length > 0) {
+            const seriesConfig = {
+              name: stationName,
+              type: 'line',
+              data: dataPoints,
+              smooth: 0.4,
+              lineStyle: { color: colors[idx % colors.length], width: 3 },
+              symbol: 'circle',
+              symbolSize: 0,
+              showSymbol: false
+            };
+
+            // Add reference lines only to first series
+            if (idx === 0) {
+              seriesConfig.markLine = {
+                silent: true,
+                symbol: 'none',
+                label: {
+                  position: 'end',
+                  formatter: '{b}',
+                  fontSize: 9
+                },
+                lineStyle: {
+                  type: 'dashed',
+                  color: '#999',
+                  width: 1
+                },
+                data: [
+                  { xAxis: 130, name: '130m' },
+                  { xAxis: 20, name: '20m' }
+                ]
+              };
+            }
+
+            allSeries.push(seriesConfig);
+            stationNames.push(stationName);
+          }
+        });
+
+        if (allSeries.length === 0) return;
+
+        // Create ONE chart with all stations
+        const chartWrapper = document.createElement("div");
+        chartWrapper.className = "segment-chart";
+
+        const title = document.createElement("div");
+        title.className = "segment-title";
+        title.textContent = `Speed vs Distance - Station`;
+
+        chartWrapper.appendChild(title);
+        const chartDiv = document.createElement("div");
+        chartDiv.className = "segment-chart-inner";
+        chartWrapper.appendChild(chartDiv);
+        container.appendChild(chartWrapper);
+
+        const platformChart = echarts.init(chartDiv);
+        platformEntryCharts.push(platformChart);
+
+        platformChart.setOption({
+          tooltip: {
+            trigger: 'axis',
+            formatter: function(params) {
+              if (!params || params.length === 0) return '';
+              const dist = params[0].value[0];
+              let result = `Distance: ${dist}m from halt<br/>`;
+              params.forEach(p => {
+                if (p.value && p.value[1] !== null) {
+                  result += `${p.seriesName}: ${p.value[1].toFixed(1)} km/h<br/>`;
+                }
+              });
+              return result;
+            }
+          },
+          legend: {
+            data: stationNames,
+            top: 5,
+            textStyle: { fontSize: 9 }
+          },
+          grid: {
+            left: '8%',
+            right: '3%',
+            bottom: '15%',
+            top: '15%',
+            containLabel: true
+          },
+          xAxis: {
+            type: 'value',
+            name: 'Distance',
+            nameLocation: 'middle',
+            nameGap: 25,
+            inverse: true,
+            splitNumber: 10,
+            minInterval: 1,
+            axisLabel: {
+              fontSize: 9,
+              formatter: function(value) {
+                if (value === 0) return 'Halt';
+                if (value === 20) return '20m';
+                if (value === 130) return '130m';
+                return value + 'm';
+              }
+            }
+          },
+          yAxis: {
+            type: 'value',
+            name: 'Speed',
+            nameLocation: 'middle',
+            nameGap: 35,
+            min: 0,
+            max: 50,
+            axisLabel: { fontSize: 9 }
+          },
+          series: allSeries
+        });
+      }
+
+      function renderBrakeFeelChart(samples, brakeTests, firstHaltIndex) {
+        const container = document.getElementById("brakeFeelChart");
+        if (!container) {
+          return;
+        }
+
+        if (!samples || samples.length === 0) {
+          disposeBrakeFeelChart();
+          if (brakeFeelStatusEl) {
+            brakeFeelStatusEl.textContent = "No run data available";
+          }
+          return;
+        }
+
+        if (!brakeFeelChart) {
+          brakeFeelChart = echarts.init(container);
+        }
+
+        const distances = samples.map((s, idx) => {
+          const value =
+            s.cumulative_distance !== undefined && s.cumulative_distance !== null
+              ? s.cumulative_distance
+              : s.distance !== undefined && s.distance !== null
+              ? s.distance
+              : idx;
+          return Number(value);
+        });
+        const distanceLabels = distances.map((d) =>
+          Number.isFinite(d) ? d.toFixed(2) : "0.00"
+        );
+        const speeds = samples.map((s) => s.speed ?? 0);
+
+        const markAreas = (brakeTests || [])
+          .map((test) => {
+            if (test.start_index === undefined || test.end_index === undefined) {
+              return null;
+            }
+            const startIdx = Math.max(
+              0,
+              Math.min(test.start_index, distanceLabels.length - 1)
+            );
+            const endIdx = Math.max(
+              startIdx + 1,
+              Math.min(test.end_index, distanceLabels.length - 1)
+            );
+            return [
+              {
+                xAxis: distanceLabels[startIdx],
+                itemStyle: { color: "rgba(255, 0, 0, 0.1)" },
+                label: {
+                  show: true,
+                  formatter: "BFT",
+                  color: "#c00",
+                },
+              },
+              { xAxis: distanceLabels[endIdx] },
+            ];
+          })
+          .filter(Boolean);
+
+        if (brakeFeelStatusEl) {
+          brakeFeelStatusEl.textContent =
+            brakeTests && brakeTests.length
+              ? "Brake feel test detected"
+              : "No brake feel test detected";
+        }
+
+        brakeFeelChart.setOption({
+          tooltip: { trigger: "axis" },
+          legend: {
+            data: markAreas.length ? ["Speed", "Brake Feel Test"] : ["Speed"],
+          },
+          grid: { left: 45, right: 20, top: 35, bottom: 40 },
+          xAxis: {
+            type: "category",
+            data: distanceLabels,
+            name: "Cumulative Distance (km)",
+            nameLocation: "middle",
+            nameGap: 30,
+            axisLabel: { fontSize: 9 },
+          },
+          yAxis: {
+            type: "value",
+            name: "Speed (km/h)",
+            nameLocation: "middle",
+            nameGap: 35,
+            axisLabel: { fontSize: 9 },
+          },
+          series: [
+            {
+              name: "Speed",
+              type: "line",
+              data: speeds,
+              smooth: true,
+              lineStyle: { color: "#0b3d91", width: 2 },
+              showSymbol: false,
+              markArea: markAreas.length
+                ? {
+                    silent: true,
+                    data: markAreas,
+                  }
+                : undefined,
+            },
+          ],
+        });
       }
 
       const CHART_API_BASE = "http://127.0.0.1:8000";
@@ -403,6 +986,9 @@
           alert("Please select a file first");
           return null;
         }
+        disposeSegmentCharts();
+        disposePlatformEntryCharts();
+        disposeBrakeFeelChart();
 
         const formData = new FormData();
         formData.append("file", file);
@@ -543,6 +1129,10 @@
           const payload = await response.json();
 
           const samples = payload.samples ?? [];
+          const brakeTests = payload.brake_tests ?? [];
+
+          disposeSegmentCharts();
+          disposePlatformEntryCharts();
 
           // Create railway line diagram from station halt data
           if (payload.station_markers && payload.station_markers.length > 0) {
@@ -567,13 +1157,24 @@
             createRailwayLine([]);
           }
 
-          // Update table with first 15 rows
-          const tableRows = samples.slice(0, 15).map((sample) => ({
-            time: sample.timestamp ?? "-",
-            speed: sample.speed ?? "-",
-            distance: sample.distance ?? "-",
-            event: sample.station ?? "",
-          }));
+          // Update table with station halt data showing platform entry speeds
+          // Filter out starting stations (where platform_entry_speed is 0 or null)
+          let tableRows = payload.station_markers ? payload.station_markers
+            .filter(marker => marker.platform_entry_speed !== 0 && marker.platform_entry_speed !== null)
+            .map((marker) => ({
+              station: marker.station,
+              pf_entry: marker.platform_entry_speed,
+              mid_pf: marker.mid_platform_speed,
+              one_coach: marker.one_coach_speed
+            })) : [];
+          if (!tableRows.length) {
+            tableRows = samples.slice(0, 15).map((sample) => ({
+              station: sample.timestamp ?? "-",
+              pf_entry: sample.speed ?? "-",
+              mid_pf: sample.cumulative_distance ?? sample.distance ?? "-",
+              one_coach: sample.station ?? ""
+            }));
+          }
           renderTable(tableRows);
 
           // Update chart with all data
@@ -646,6 +1247,35 @@
             } : undefined
           });
 
+          // Add brake feel areas
+          const brakeAreas = brakeTests
+            .map((test) => {
+              const startIdx = Math.max(test.start_index, 0);
+              const endIdx = Math.min(test.end_index, distances.length - 1);
+              if (endIdx <= startIdx) return null;
+              return [
+                {
+                  xAxis: distances[startIdx],
+                  itemStyle: { color: "rgba(255, 0, 0, 0.1)" },
+                  name: "BFT",
+                },
+                { xAxis: distances[endIdx] },
+              ];
+            })
+            .filter(Boolean);
+
+          if (brakeAreas.length) {
+            series.push({
+              name: "Brake Feel Test",
+              type: "line",
+              data: [],
+              markArea: {
+                silent: true,
+                data: brakeAreas,
+              },
+            });
+          }
+
           // Add violation markers if available
           if (payload.violations && payload.violations.length > 0) {
             const violationData = samples.map((s, idx) => {
@@ -661,6 +1291,16 @@
               itemStyle: { color: '#ff0000' },
               z: 3,  // Draw on top of everything
             });
+          }
+
+          const legendEntries = [];
+          if (hasPSR) legendEntries.push("MPS/PSR");
+          legendEntries.push("Actual Speed");
+          if (payload.violations && payload.violations.length > 0) {
+            legendEntries.push("Violations");
+          }
+          if (brakeAreas.length) {
+            legendEntries.push("Brake Feel Test");
           }
 
           chartInstance.setOption({
@@ -685,7 +1325,7 @@
               }
             },
             legend: {
-              data: hasPSR ? ['MPS/PSR', 'Actual Speed', 'Violations'] : ['Actual Speed'],
+              data: legendEntries,
               top: 28,
               textStyle: { fontSize: 10 }
             },
@@ -707,6 +1347,9 @@
             },
             series: series
           });
+          renderSegmentCharts(samples, payload.station_markers, brakeTests);
+          renderPlatformEntryCharts(samples, payload.station_markers, payload.platform_entry_data);
+          renderBrakeFeelChart(samples, brakeTests, payload.first_halt_index);
 
         } catch (err) {
           console.error(err);
@@ -811,6 +1454,11 @@
         if (chart) {
           chart.resize();
         }
+        if (brakeFeelChart) {
+          brakeFeelChart.resize();
+        }
+        segmentCharts.forEach((segChart) => segChart.resize());
+        platformEntryCharts.forEach((peChart) => peChart.resize());
       });
     </script>
   </body>

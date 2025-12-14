@@ -35,69 +35,36 @@ class HaltDetector:
         """
         Detect halts in SPM data.
 
+        Simple logic: Find all rows where speed = 0, then get unique cumulative distances.
+        This handles cases where SPM instruments skip recording during halts.
+
         Args:
             spm_data: Polars DataFrame with speed and distance data
             speed_col: Name of speed column
             cum_dist_col: Name of cumulative distance column
 
         Returns:
-            List of halt dictionaries with:
-                - start_index: Index where halt starts
-                - end_index: Index where halt ends
-                - cumulative_distance: Distance where halt occurred
-                - duration_records: Number of records in halt
+            List of halt dictionaries with cumulative_distance
         """
         if speed_col not in spm_data.columns or cum_dist_col not in spm_data.columns:
             return []
 
-        # Find all points where speed is below threshold
-        halting_mask = spm_data[speed_col] <= self.speed_threshold
+        # Find all rows where speed = 0
+        halt_rows = spm_data.filter(pl.col(speed_col) == 0)
 
-        # Convert to list for easier processing
-        is_halting = halting_mask.to_list()
+        if len(halt_rows) == 0:
+            return []
 
+        # Get unique (distinct) cumulative distances where halts occurred
+        unique_halt_distances = halt_rows.select(cum_dist_col).unique().sort(cum_dist_col)
+
+        # Convert to list of dicts
         halts = []
-        in_halt = False
-        halt_start = None
-
-        for i, halting in enumerate(is_halting):
-            if halting and not in_halt:
-                # Start of halt
-                in_halt = True
-                halt_start = i
-            elif not halting and in_halt:
-                # End of halt
-                halt_duration = i - halt_start
-
-                # Only count as halt if duration is sufficient
-                if halt_duration >= self.min_halt_duration_seconds:
-                    # Get cumulative distance at halt location (midpoint)
-                    halt_index = (halt_start + i) // 2
-                    halt_dist = float(spm_data[cum_dist_col][halt_index])
-
-                    halts.append({
-                        'start_index': halt_start,
-                        'end_index': i,
-                        'cumulative_distance': halt_dist,
-                        'duration_records': halt_duration
-                    })
-
-                in_halt = False
-                halt_start = None
-
-        # Handle case where file ends during a halt
-        if in_halt and halt_start is not None:
-            halt_duration = len(is_halting) - halt_start
-            if halt_duration >= self.min_halt_duration_seconds:
-                halt_index = (halt_start + len(is_halting) - 1) // 2
-                halt_dist = float(spm_data[cum_dist_col][halt_index])
-
-                halts.append({
-                    'start_index': halt_start,
-                    'end_index': len(is_halting),
-                    'cumulative_distance': halt_dist,
-                    'duration_records': halt_duration
-                })
+        for row in unique_halt_distances.iter_rows():
+            halt_dist = float(row[0])
+            halts.append({
+                'cumulative_distance': halt_dist
+            })
 
         return halts
 

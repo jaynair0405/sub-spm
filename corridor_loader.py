@@ -250,7 +250,8 @@ class CorridorManager:
             if not path.exists():
                 continue
             try:
-                self.corridors[name] = load_corridor_file(path)
+                corridor_data = load_corridor_file(path)
+                self.corridors[name] = corridor_data
             except Exception:
                 continue
 

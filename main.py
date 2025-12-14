@@ -12,6 +12,8 @@ from corridor_loader import CorridorManager
 from psr_mps import PSRMPSCalculator, detect_violations
 from halt_detection import HaltDetector, calculate_cumulative_distance
 from platform_entry_speed import PlatformEntryCalculator
+from brakefeel_detector import BrakeFeelDetector
+from station_km_maps import get_station_km_map_for_train_type
 
 app = FastAPI(title="SPM Analysis API")
 
@@ -34,6 +36,7 @@ psr_calculator = PSRMPSCalculator(reference_data_dir=str(DATA_ROOT / "reference_
 # Initialize halt detector (speed=0, distance=0)
 # Tolerance set to 350m to handle wheel diameter variations and GPS inaccuracies
 halt_detector = HaltDetector(speed_threshold=0.0, min_halt_duration_seconds=1)
+brakefeel_detector = BrakeFeelDetector()
 
 # Global storage for uploaded runs (in production, use a database)
 runs_storage: Dict[str, Dict[str, Any]] = {}
@@ -146,8 +149,22 @@ async def upload_spm_file(
             if pandas_df is None:
                 # If no headers found, try reading without headers
                 pandas_df = pd.read_excel(tmp_path, header=None)
-                # Assume first 3 columns are Date(+Time), Speed, Distance
-                if len(pandas_df.columns) >= 3:
+
+                # Detect format: 3 columns (DateTime, Speed, Distance) or 4 columns (Date, Time, Speed, Distance)
+                if len(pandas_df.columns) >= 4:
+                    # Check if column 2 (index 1) looks like time by checking if it's numeric (speed)
+                    # If it's numeric, we have 3 columns (DateTime combined)
+                    # If it's not numeric, we have 4 columns (Date and Time separate)
+                    try:
+                        second_col_val = pandas_df.iloc[0, 1]
+                        # Try to convert to float - if it works, it's likely Speed (3-column format)
+                        float(second_col_val)
+                        # 3-column format: DateTime, Speed, Distance
+                        pandas_df.columns = ['Date', 'Speed', 'Distance'] + list(pandas_df.columns[3:])
+                    except (ValueError, TypeError):
+                        # Second column is not numeric - likely Time (4-column format)
+                        pandas_df.columns = ['Date', 'Time', 'Speed', 'Distance'] + list(pandas_df.columns[4:])
+                elif len(pandas_df.columns) >= 3:
                     pandas_df.columns = ['Date', 'Speed', 'Distance'] + list(pandas_df.columns[3:])
                 else:
                     pandas_df.columns = ['Date', 'Speed', 'Distance'][:len(pandas_df.columns)]
@@ -250,7 +267,7 @@ async def upload_spm_file(
                 # Determine train type based on train code
                 if corridor_name and 'THB' in corridor_name.upper():
                     train_type = 'thb'
-                elif train_code and 950 <= int(train_code) <= 959:
+                elif train_code and 95100 <= int(train_code) <= 95199:
                     train_type = 'fast'
                 else:
                     train_type = 'slow'
@@ -267,36 +284,33 @@ async def upload_spm_file(
                     all_stations = corridor_data.stations
 
                     # Filter to from/to range if provided
+                    # psr_stations will be used for PSR calculation (all corridor stations)
+                    # ordered_stations will be used for halt matching (may be filtered later)
                     if from_station and to_station and from_station in all_stations and to_station in all_stations:
                         from_idx = all_stations.index(from_station)
                         to_idx = all_stations.index(to_station)
                         if from_idx < to_idx:
-                            ordered_stations = all_stations[from_idx:to_idx+1]
+                            psr_stations = all_stations[from_idx:to_idx+1]
                         else:
-                            ordered_stations = all_stations[to_idx:from_idx+1][::-1]
-                        print(f"[DEBUG] Target station range from form: {from_station}→{to_station} ({len(ordered_stations)} stations)")
+                            psr_stations = all_stations[to_idx:from_idx+1][::-1]
+                        print(f"[DEBUG] Target station range from form: {from_station}→{to_station} ({len(psr_stations)} stations)")
                     else:
-                        ordered_stations = all_stations
-                        print(f"[DEBUG] Using all {len(ordered_stations)} corridor stations (no from/to provided)")
+                        psr_stations = all_stations
+                        print(f"[DEBUG] Using all {len(psr_stations)} corridor stations (no from/to provided)")
 
-                    # Build station KM map with ABSOLUTE positions (no offset adjustment)
-                    # This allows matching SPM halts to corridor positions directly
-                    if corridor_data.records and len(corridor_data.records) > 0:
-                        first_record = corridor_data.records[0]
-                        all_cumulative_dists = first_record.cumulative_distances
+                    ordered_stations = psr_stations  # Initialize ordered_stations for halt matching
 
-                        # Build KM map for ALL corridor stations with absolute positions
-                        for i, station in enumerate(all_stations):
-                            if i < len(all_cumulative_dists):
-                                station_km_map[station] = all_cumulative_dists[i]
-                            else:
-                                print(f"[WARNING] No cumulative distance for station {station}")
+                    # Use official KM map based on train type (like GAS app)
+                    # These are hardcoded reference values, NOT calculated from corridor CSV
+                    print(f"[DEBUG] Loading official station KM map for train_type={train_type}...")
+                    station_km_map = get_station_km_map_for_train_type(train_type)
 
-                    print(f"[DEBUG] Built station KM map with {len(station_km_map)} stations (for PSR officialKM)")
+                    print(f"[DEBUG] Loaded official KM map with {len(station_km_map)} stations (for PSR officialKM)")
                     print(f"[DEBUG] First 5 station KMs: {list(station_km_map.items())[:5]}")
-                    if from_station in station_km_map:
+                    print(f"[DEBUG] Last 5 station KMs: {list(station_km_map.items())[-5:]}")
+                    if from_station and from_station in station_km_map:
                         print(f"[DEBUG] Target from_station {from_station} at {station_km_map[from_station]:.0f}m")
-                    if to_station in station_km_map:
+                    if to_station and to_station in station_km_map:
                         print(f"[DEBUG] Target to_station {to_station} at {station_km_map[to_station]:.0f}m")
 
                     # Detect halts using ISD-based matching (GAS approach)
@@ -329,6 +343,8 @@ async def upload_spm_file(
 
                     print(f"[DEBUG] Matched {len(halting_station_map)}/{len(halts)} halts to stations")
                     print(f"[DEBUG] Halting stations: {list(halting_station_map.keys())}")
+                    print(f"[DEBUG] Ordered stations after halt matching: {len(ordered_stations)} stations")
+                    print(f"[DEBUG] Ordered stations list: {ordered_stations}")
 
                     # Track whether stations were explicitly provided by user (before auto-detection)
                     user_provided_from = bool(from_station)
@@ -394,11 +410,20 @@ async def upload_spm_file(
                         print(f"[DEBUG] Adjusted halting stations: {halting_station_map}")
 
                         # Adjust station_km_map for PSR calculation
+                        # Use psr_stations (all corridor stations) not ordered_stations (halt-filtered)
                         adjusted_station_km_map = {}
-                        for station in ordered_stations:
+                        missing_stations = []
+                        for station in psr_stations:
                             if station in station_km_map:
                                 adjusted_station_km_map[station] = station_km_map[station] - start_dist
-                        print(f"[DEBUG] Adjusted station KM map for PSR: {list(adjusted_station_km_map.items())[:5]}")
+                            else:
+                                missing_stations.append(station)
+
+                        print(f"[DEBUG] Adjusted station KM map for PSR: {len(adjusted_station_km_map)} stations")
+                        print(f"[DEBUG] First 5: {list(adjusted_station_km_map.items())[:5]}")
+                        print(f"[DEBUG] Last 5: {list(adjusted_station_km_map.items())[-5:]}")
+                        if missing_stations:
+                            print(f"[DEBUG] Missing from station_km_map: {missing_stations}")
                     else:
                         # No halts matched - use original data
                         adjusted_station_km_map = station_km_map
@@ -407,10 +432,11 @@ async def upload_spm_file(
                     # Calculate PSR/MPS values
                     try:
                         print(f"[DEBUG] Starting PSR calculation for train_type={train_type}...")
+                        print(f"[DEBUG] Using {len(psr_stations)} corridor stations for PSR (not just halting stations)")
                         spm_data_dicts = df.to_dicts()
                         psr_values = psr_calculator.process_train_speed_limits(
                             spm_data_dicts,
-                            ordered_stations,
+                            psr_stations,  # Use all corridor stations, not just halting stations
                             adjusted_station_km_map,
                             halting_station_map,
                             train_type
@@ -564,6 +590,7 @@ async def get_chart_data(
     # Convert stored data to chart format
     samples = []
     entry_samples = []
+    first_halt_index = run_data.get("first_halt_index")
     for idx, row in enumerate(run_data["data"]):
         timestamp = f"{row.get('Time', '')}" if row.get('Time') else f"T+{idx}s"
         raw_cumulative = float(row.get("cumulative_distance", 0) or 0)
@@ -591,6 +618,26 @@ async def get_chart_data(
             "cumulative_distance": raw_cumulative,
             "speed": raw_speed
         })
+
+    # Detect brake feel tests (using per-sample speeds)
+    brake_tests = [
+        {
+            "start_index": test.start_index,
+            "end_index": test.end_index,
+            "max_speed_index": test.max_speed_index,
+            "lowest_speed_index": test.lowest_speed_index,
+            "recovery_index": test.recovery_index,
+            "braking_start_index": test.braking_start_index,
+            "start_speed": test.start_speed,
+            "max_speed": test.max_speed,
+            "braking_start_speed": test.braking_start_speed,
+            "lowest_speed": test.lowest_speed,
+            "recovery_speed": test.recovery_speed,
+            "speed_drop": test.speed_drop,
+            "duration": test.duration,
+        }
+        for test in brakefeel_detector.detect_from_samples(samples)
+    ][:1]
 
     # Prepare station markers for chart visualization
     # Map each station to its nearest sample index for chart positioning
@@ -626,17 +673,25 @@ async def get_chart_data(
                 min_diff = diff
                 closest_idx = idx
 
-        # Get platform entry speed if available
+        # Get platform entry speeds if available
         entry_speed = None
+        mid_platform_speed = None
+        one_coach_speed = None
         if station_name in platform_entry_data:
-            entry_speed = platform_entry_data[station_name]['entry_speed']
+            entry_speed = platform_entry_data[station_name].get('entry_speed')
+            mid_platform_speed = platform_entry_data[station_name].get('mid_platform_speed')
+            one_coach_speed = platform_entry_data[station_name].get('one_coach_speed')
 
         station_markers.append({
             "station": station_name,
             "distance": round(halt_dist_km, 2),
             "sample_index": closest_idx,
-            "platform_entry_speed": round(entry_speed, 1) if entry_speed is not None else None
+            "platform_entry_speed": round(entry_speed, 1) if entry_speed is not None else None,
+            "mid_platform_speed": round(mid_platform_speed, 1) if mid_platform_speed is not None else None,
+            "one_coach_speed": round(one_coach_speed, 1) if one_coach_speed is not None else None
         })
+        if first_halt_index is None or closest_idx < first_halt_index:
+            first_halt_index = closest_idx
 
     # Ensure the chart shows the starting station even if no halt was detected there
     start_station = run_data.get("from_station") or (ordered_stations[0] if ordered_stations else None)
@@ -647,8 +702,19 @@ async def get_chart_data(
             "station": start_station,
             "distance": round(float(start_distance), 2),
             "sample_index": 0,
-            "platform_entry_speed": 0.0  # starting point speed is effectively 0 km/h
+            "platform_entry_speed": 0.0,  # starting point speed is effectively 0 km/h
+            "mid_platform_speed": None,
+            "one_coach_speed": None
         })
+
+    if first_halt_index is None:
+        for idx, sample in enumerate(samples):
+            if idx == 0:
+                continue
+            if (sample.get("speed") == 0 and
+                (sample.get("distance") == 0 or sample.get("cumulative_distance") == 0)):
+                first_halt_index = idx
+                break
 
     return {
         "samples": samples,
@@ -662,6 +728,9 @@ async def get_chart_data(
         },
         "halting_stations": halting_stations,
         "station_markers": station_markers,
+        "brake_tests": brake_tests,
+        "first_halt_index": first_halt_index,
+        "platform_entry_data": platform_entry_data,
         "violations": run_data.get("violations", []),
         "violation_count": run_data.get("violation_count", 0),
     }
