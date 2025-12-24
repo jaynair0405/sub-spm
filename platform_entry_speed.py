@@ -29,6 +29,9 @@ class PlatformEntryCalculator:
         """
         Load ISD (Inter-Station Distance) reference data.
 
+        For fast trains, loads BOTH fast and slow ISD data to support cross-corridor
+        journeys (e.g., TLA→CSMT travels through NE slow stations + Main fast stations).
+
         Args:
             train_type: "fast" or "slow" (slow includes harbour/local lines)
 
@@ -47,31 +50,42 @@ class PlatformEntryCalculator:
         if cache_key in self.isd_cache:
             return self.isd_cache[cache_key]
 
-        # Map train type to JSON file
-        # THB (Trans-Harbour), harbour, and local lines all use slow_isd.json
-        file_map = {
-            "fast": "fast_isd.json",
-            "slow": "slow_isd.json",
-            "thb": "slow_isd.json",      # Trans-Harbour uses harbour/local ISD
-            "harbour": "slow_isd.json",
-            "local": "slow_isd.json"
-        }
+        isd_data = {}
 
-        if train_type.lower() not in file_map:
-            # Default to slow for unknown types
-            print(f"[DEBUG ISD] Unknown train type '{train_type}', defaulting to slow ISD data")
-            train_type = "slow"
+        # For fast trains, load BOTH fast and slow ISD data
+        # This supports cross-corridor journeys (e.g., NE→Main, SE→Main)
+        if train_type.lower() == "fast":
+            # Load fast ISD first
+            fast_file = self.reference_data_dir / "fast_isd.json"
+            if fast_file.exists():
+                with open(fast_file, 'r') as f:
+                    fast_data = json.load(f)
+                    isd_data.update(fast_data)
 
-        json_file = self.reference_data_dir / file_map[train_type.lower()]
+            # Load slow ISD and merge (fast ISD takes precedence for overlaps)
+            slow_file = self.reference_data_dir / "slow_isd.json"
+            if slow_file.exists():
+                with open(slow_file, 'r') as f:
+                    slow_data = json.load(f)
+                    # Only add sections not already in fast data
+                    for section, data in slow_data.items():
+                        if section not in isd_data:
+                            isd_data[section] = data
 
-        if not json_file.exists():
-            raise FileNotFoundError(f"ISD file not found: {json_file}")
+            print(f"[DEBUG ISD] Loaded {len(isd_data)} platform entries (fast + slow combined)")
 
-        with open(json_file, 'r') as f:
-            isd_data = json.load(f)
+        else:
+            # For slow/thb/harbour trains, load only slow ISD
+            slow_file = self.reference_data_dir / "slow_isd.json"
+            if not slow_file.exists():
+                raise FileNotFoundError(f"ISD file not found: {slow_file}")
+
+            with open(slow_file, 'r') as f:
+                isd_data = json.load(f)
+
+            print(f"[DEBUG ISD] Loaded {len(isd_data)} platform entries for {train_type} trains")
 
         self.isd_cache[cache_key] = isd_data
-        print(f"[DEBUG ISD] Loaded {len(isd_data)} platform entries for {train_type} trains")
         return isd_data
 
     def create_section_pairs(self, ordered_stations: List[str]) -> List[str]:
@@ -346,11 +360,11 @@ class PlatformEntryCalculator:
             entry_distance_raw = max(halt_distance - platform_length_in_data_units, 0.0)
 
             # Calculate additional measurement points
-            # Mid-platform: 130m from halt (approximate mid-point of platform)
-            mid_platform_distance_raw = max(halt_distance - (130.0 if use_meter_scale else 0.130), 0.0)
+            # Mid-platform: 126m from halt (approximate mid-point of platform)
+            mid_platform_distance_raw = max(halt_distance - (126.0 if use_meter_scale else 0.126), 0.0)
 
-            # One coach: 20m from halt (length of one coach)
-            one_coach_distance_raw = max(halt_distance - (20.0 if use_meter_scale else 0.020), 0.0)
+            # One coach: 17m from halt (length of one coach)
+            one_coach_distance_raw = max(halt_distance - (17.0 if use_meter_scale else 0.017), 0.0)
 
             # Find speeds at all three points
             entry_speed = self.find_speed_at_distance(entry_distance_raw, spm_data)
@@ -370,8 +384,8 @@ class PlatformEntryCalculator:
                 'platform_length_km': platform_length,
                 'entry_distance': entry_distance_km,
                 'entry_speed': entry_speed,
-                'mid_platform_speed': mid_platform_speed,  # Speed at 130m from halt
-                'one_coach_speed': one_coach_speed,        # Speed at 20m from halt
+                'mid_platform_speed': mid_platform_speed,  # Speed at 126m from halt
+                'one_coach_speed': one_coach_speed,        # Speed at 17m from halt
                 'section': station_section
             }
 
@@ -379,8 +393,8 @@ class PlatformEntryCalculator:
             one_coach_str = f"{one_coach_speed:.1f}" if one_coach_speed is not None else "N/A"
             print(f"[DEBUG ISD] {station} ({station_section}): "
                   f"PF Entry={entry_speed:.1f}km/h, "
-                  f"Mid PF(130m)={mid_pf_str}km/h, "
-                  f"1 Coach(20m)={one_coach_str}km/h "
+                  f"Mid PF(126m)={mid_pf_str}km/h, "
+                  f"1 Coach(17m)={one_coach_str}km/h "
                   f"[halt={halt_distance_km:.3f}km, platform={platform_length:.3f}km]")
 
         return entry_speeds

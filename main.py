@@ -93,6 +93,9 @@ async def upload_spm_file(
     from_station: Optional[str] = Form(None),
     to_station: Optional[str] = Form(None),
     train_number: Optional[str] = Form(None),
+    date_of_working: Optional[str] = Form(None),
+    analysed_by: Optional[str] = Form(None),
+    unit_number: Optional[str] = Form(None),
     notes: Optional[str] = Form(None),
 ):
     """
@@ -264,13 +267,21 @@ async def upload_spm_file(
                 corridor_name = corridor_info.get('corridor', '')
                 train_code = corridor_manager.get_train_code(train_number)
 
-                # Determine train type based on train code
+                # Determine train type from train code prefix (primary source)
+                prefix = str(train_code).strip()[:3] if train_code else None
+
                 if corridor_name and 'THB' in corridor_name.upper():
                     train_type = 'thb'
-                elif train_code and 95100 <= int(train_code) <= 95199:
+                elif prefix and prefix in corridor_manager.FAST_PREFIXES:
                     train_type = 'fast'
                 else:
                     train_type = 'slow'
+
+                # Validate against corridor name (double-check for consistency)
+                if corridor_name and 'FAST' in corridor_name.upper() and train_type != 'fast':
+                    print(f"[WARNING] Mismatch: train_type={train_type} but corridor={corridor_name}")
+                elif corridor_name and 'LOCAL' in corridor_name.upper() and train_type == 'fast':
+                    print(f"[WARNING] Mismatch: train_type={train_type} but corridor={corridor_name}")
 
                 # Get corridor data for PSR calculation
                 print(f"[DEBUG] Looking for corridor: '{corridor_name}'")
@@ -333,7 +344,7 @@ async def upload_spm_file(
                         corridor_data,
                         from_station=from_station,
                         to_station=to_station,
-                        max_isd_diff=100.0,  # 100m ISD tolerance
+                        max_isd_diff=175.0,  # 175m ISD tolerance (balances junction stations & skip detection)
                         max_cd_diff=300.0    # 300m cumulative distance tolerance
                     )
 
@@ -472,6 +483,9 @@ async def upload_spm_file(
             "from_station": from_station,
             "to_station": to_station,
             "train_number": train_number,
+            "date_of_working": date_of_working,
+            "analysed_by": analysed_by,
+            "unit_number": unit_number,
             "train_type": train_type,
             "notes": notes,
             "uploaded_at": datetime.now().isoformat(),
@@ -725,6 +739,10 @@ async def get_chart_data(
             "to_station": run_data.get("to_station"),
             "train_number": run_data.get("train_number"),
             "train_type": run_data.get("train_type"),
+            "date_of_working": run_data.get("date_of_working"),
+            "analysed_by": run_data.get("analysed_by"),
+            "unit_number": run_data.get("unit_number"),
+            "notes": run_data.get("notes"),
         },
         "halting_stations": halting_stations,
         "station_markers": station_markers,

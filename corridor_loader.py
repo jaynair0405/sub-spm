@@ -66,20 +66,24 @@ def load_corridor_file(path: Path) -> CorridorData:
 
 class CorridorManager:
     DEFAULT_FILES: Dict[str, str] = {
-        "DNFASTLOCALS": "DNFASTLOCALS.csv",
-        "UPFASTLOCALS": "UPFASTLOCALS.csv",
-        "DNLOCALSNE": "DNLOCALSNE.csv",
-        "UPLOCALSNE": "UPLOCALSNE.csv",
-        "DNLOCALSSE": "DNLOCALSSE.csv",
-        "UPLOCALSSE": "UPLOCALSSE.csv",
-        "DNSLOWLOCALS": "DNSLOWLOCALS.csv",
-        "UPSLOWLOCALS": "Sub  SPM Data Analysis - UPSLOWLOCALS.csv",
-        "DNTHB_PNVL": "DNTHB_PNVL.csv",
+        # Central Railway - NE Region (NE + Main combined)
+        "UPFULLNE_FAST": "UPFULLNE_FAST.csv",
+        "UPFULLNE_LOCAL": "UPFULLNE_LOCAL.csv",
+        "DNFULLNE_FAST": "DNFULLNE_FAST.csv",
+        "DNFULLNE_LOCAL": "DNFULLNE_LOCAL.csv",
+        # Central Railway - SE Region (SE + Main combined)
+        "UPFULLSE_FAST": "UPFULLSE_FAST.csv",
+        "UPFULLSE_LOCAL": "UPFULLSE_LOCAL.csv",
+        "DNFULLSE_FAST": "DNFULLSE_FAST.csv",
+        "DNFULLSE_LOCAL": "DNFULLSE_LOCAL.csv",
+        # Trans-Harbour Line
         "UPTHB_PNVL": "UPTHB_PNVL.csv",
-        "DNTHB_VSH": "DNTHB_VSH.csv",
+        "DNTHB_PNVL": "DNTHB_PNVL.csv",
         "UPTHB_VSH": "UPTHB_VSH.csv",
-        "DNHARBOUR": "DNHARBOUR.csv",
+        "DNTHB_VSH": "DNTHB_VSH.csv",
+        # Harbour Line
         "UPHARBOUR": "UPHARBOUR.csv",
+        "DNHARBOUR": "DNHARBOUR.csv",
     }
 
     SLOW_SE_PREFIXES = {"960", "961", "962", "963"}
@@ -194,6 +198,39 @@ class CorridorManager:
         "THK",
     }
 
+    # NE-exclusive stations (before KYN junction, not including KYN)
+    NE_EXCLUSIVE_STATIONS = {
+        "KSRA",
+        "OMB",
+        "KE",
+        "THS",
+        "ATG",
+        "ASO",
+        "VSD",
+        "KDV",
+        "TLA",
+        "ABY",
+        "SHD",
+    }
+
+    # SE-exclusive stations (before KYN junction, not including KYN)
+    SE_EXCLUSIVE_STATIONS = {
+        "VLDI",
+        "ULNR",
+        "ABH",
+        "BUD",
+        "VGI",
+        "SHELU",
+        "NRL",
+        "BVS",
+        "KJT",
+        "PDI",
+        "KLY",
+        "DLY",
+        "LWJ",
+        "KHPI",
+    }
+
     THB_PNVL_STATIONS = {
         "PNVL",
         "JNJ",
@@ -287,6 +324,7 @@ class CorridorManager:
         from_station = (from_station or "").strip().upper()
         to_station = (to_station or "").strip().upper()
 
+        # Check Trans-Harbour and Harbour routes first (unchanged)
         if prefix in self.TRANS_HARBOUR_PREFIXES:
             if prefix == "990":
                 return "THB_PNVL"
@@ -297,22 +335,44 @@ class CorridorManager:
         if prefix in self.HARBOUR_PREFIXES or prefix in self.PORT_PREFIXES:
             return "HARBOUR"
 
-        if prefix in self.FAST_PREFIXES:
-            return "FASTLOCALS"
-
+        # Central Railway - Simplified logic using FULLNE and FULLSE only
+        # PRIORITY 1: Train code prefix determines region for regional trains
         if prefix in self.SLOW_NE_PREFIXES:
-            return "LOCALSNE"
+            return "FULLNE_LOCAL"
 
         if prefix in self.SLOW_SE_PREFIXES:
-            return "LOCALSSE"
+            return "FULLSE_LOCAL"
 
-        if prefix in self.SLOW_GENERAL_PREFIXES:
-            return "SLOWLOCALS"
+        # PRIORITY 2: For FAST and GENERAL trains, use stations to determine region
+        # Determine train type: FAST or LOCAL
+        is_fast = prefix in self.FAST_PREFIXES
 
-        if from_station in self.SE_STATIONS and to_station in self.SE_STATIONS:
-            return "LOCALSSE"
+        # Check exclusive stations first (before KYN junction)
+        from_in_ne_exclusive = from_station in self.NE_EXCLUSIVE_STATIONS
+        to_in_ne_exclusive = to_station in self.NE_EXCLUSIVE_STATIONS
+        from_in_se_exclusive = from_station in self.SE_EXCLUSIVE_STATIONS
+        to_in_se_exclusive = to_station in self.SE_EXCLUSIVE_STATIONS
 
-        if from_station in self.NE_STATIONS and to_station in self.NE_STATIONS:
-            return "LOCALSNE"
+        # Check full region (includes both exclusive + Main)
+        from_in_ne = from_station in self.NE_STATIONS
+        to_in_ne = to_station in self.NE_STATIONS
+        from_in_se = from_station in self.SE_STATIONS
+        to_in_se = to_station in self.SE_STATIONS
 
-        return "SLOWLOCALS"
+        # Region selection logic (for FAST/GENERAL trains based on stations)
+        # 1. If ANY exclusive NE station → use FULLNE
+        # 2. Else if ANY exclusive SE station → use FULLSE
+        # 3. Else if in NE region (Main + KYN) → use FULLNE
+        # 4. Else if in SE region (Main + KYN) → use FULLSE
+        # 5. Else default to FULLNE
+        if from_in_ne_exclusive or to_in_ne_exclusive:
+            return "FULLNE_FAST" if is_fast else "FULLNE_LOCAL"
+        elif from_in_se_exclusive or to_in_se_exclusive:
+            return "FULLSE_FAST" if is_fast else "FULLSE_LOCAL"
+        elif from_in_ne or to_in_ne:
+            return "FULLNE_FAST" if is_fast else "FULLNE_LOCAL"
+        elif from_in_se or to_in_se:
+            return "FULLSE_FAST" if is_fast else "FULLSE_LOCAL"
+        else:
+            # Default to FULLNE for unknown stations
+            return "FULLNE_FAST" if is_fast else "FULLNE_LOCAL"

@@ -67,6 +67,7 @@ class PSRMPSCalculator:
 
         with open(json_file, 'r') as f:
             limits = json.load(f)
+        print(f"[DEBUG PSR] Loaded {len(limits)} segments from {json_file.name}")
 
         self.segment_limits_cache[cache_key] = limits
         return limits
@@ -275,13 +276,9 @@ class PSRMPSCalculator:
             # Segment not found in limits data
             return None
 
-        # Debug: Track segments with varying limits
+        # Track segments with varying limits (for debugging complex restrictions)
         if debug_segments is not None and len(segment_def['limits']) > 1:
-            if segment_name not in debug_segments:
-                debug_segments.add(segment_name)
-                limit_details = [f"{lr['startPct']:.0%}-{lr['endPct']:.0%}:{lr['limit']}"
-                                for lr in segment_def['limits']]
-                print(f"[DEBUG PSR] Segment {segment_name} has {len(segment_def['limits'])} limits: {', '.join(limit_details)}")
+            debug_segments.add(segment_name)
 
         # Find applicable limit for this percentage
         for limit_range in segment_def['limits']:
@@ -356,6 +353,8 @@ class PSRMPSCalculator:
             end_distance
         )
 
+        print(f"[DEBUG PSR] Processing {len(enhanced_stations)} stations from {enhanced_stations[0]['name']} to {enhanced_stations[-1]['name']}")
+
         # Process each data point
         psr_values = []
 
@@ -386,10 +385,8 @@ class PSRMPSCalculator:
 
             psr_values.append(speed_limit)
 
-        # Debug: Print all segments found
-        print(f"[DEBUG PSR] Found {len(segments_found)} unique segments:")
-        for seg_name, info in list(segments_found.items())[:10]:  # First 10 segments
-            print(f"  {seg_name}: limit={info['limit']} km/h at {info['percentage']:.2%}")
+        # Debug: Print segment summary
+        print(f"[DEBUG PSR] Found {len(segments_found)} unique segments, {len(debug_segments)} with variable limits")
 
         return psr_values
 
