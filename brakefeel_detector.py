@@ -31,11 +31,13 @@ class BrakeFeelDetector:
         min_speed_drop: float = 8.0,
         max_speed_variation: float = 3.0,
         stabilization_period: float = 5.0,
+        braking_noise_tolerance: int = 3,
     ) -> None:
         self.min_speed_for_test = min_speed_for_test
         self.min_speed_drop = min_speed_drop
         self.max_speed_variation = max_speed_variation
         self.stabilization_period = stabilization_period
+        self.braking_noise_tolerance = max(0, int(braking_noise_tolerance))
 
     def detect_from_samples(self, samples: Sequence[dict]) -> List[BrakeFeelTest]:
         speeds = [float(s.get("speed", 0.0) or 0.0) for s in samples]
@@ -122,6 +124,9 @@ class BrakeFeelDetector:
         threshold = 700.0 if use_meters else min_distance
         last_cum = None
 
+        padding = max(10, self.braking_noise_tolerance + int(self.stabilization_period) + 5)
+        total_len = len(speeds)
+
         for idx, (speed, distance, cum) in enumerate(zip(speeds, distances, cumulative)):
             speed = float(speed or 0)
             distance = float(distance or 0)
@@ -129,9 +134,9 @@ class BrakeFeelDetector:
             if speed == 0 and distance == 0:
                 if (use_meters and cum >= threshold) or (not use_meters and cum >= threshold):
                     if last_cum is None or abs(cum - last_cum) > (200 if use_meters else 0.2):
-                        return idx + 1
+                        return min(total_len, idx + 1 + padding)
                     last_cum = cum
-        return len(speeds)
+        return total_len
 
     def _convert_times_to_seconds(self, times: Sequence[Optional[str]]) -> List[float]:
         seconds = []
@@ -216,14 +221,16 @@ class BrakeFeelDetector:
         start_speed = speeds[start_index]
         lowest_speed = start_speed
         lowest_index = start_index
-        plateau_count = 0
         hit_target = False
+        noise_allowance = self.braking_noise_tolerance
+        noise_count = 0
 
         while current < len(speeds) - 1 and (current - start_index) < max_time:
             curr = speeds[current]
             nxt = speeds[current + 1]
 
             if nxt < curr - plateau_tol:
+                noise_count = 0
                 if nxt < lowest_speed:
                     lowest_speed = nxt
                     lowest_index = current + 1
@@ -231,9 +238,13 @@ class BrakeFeelDetector:
                     hit_target = True
             elif nxt > curr + plateau_tol:
                 if hit_target:
-                    return Phase(start_index, lowest_index, start_speed, lowest_speed)
+                    noise_count += 1
+                    if noise_count > noise_allowance:
+                        return Phase(start_index, lowest_index, start_speed, lowest_speed)
+                else:
+                    noise_count = min(noise_count + 1, noise_allowance)
             else:
-                plateau_count = min(plateau_count + 1, 100)
+                noise_count = max(0, noise_count - 1)
             current += 1
 
         if hit_target:

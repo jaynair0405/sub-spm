@@ -28,6 +28,32 @@
         --card: #ffffff;
         --bg: #f5f7fb;
       }
+      .summary-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 12px;
+        font-size: 0.9rem;
+      }
+      .summary-table th {
+        text-align: left;
+        padding: 10px;
+        background: #eef3ff;
+        border-bottom: 1px solid var(--border);
+        color: var(--brand);
+        font-weight: 600;
+      }
+      .summary-table td {
+        padding: 8px 10px;
+        border-bottom: 1px solid var(--border);
+      }
+      .summary-table .section-title {
+        background: #f5f7fb;
+        font-weight: 600;
+      }
+      .no-data {
+        text-align: center;
+        color: var(--muted);
+      }
       * {
         box-sizing: border-box;
       }
@@ -328,6 +354,29 @@
               />
             </label>
             <label>
+              Date of Working
+              <input
+                type="date"
+                id="dateOfWorking"
+              />
+            </label>
+            <label>
+              Analysed By
+              <input
+                type="text"
+                id="analysedBy"
+                placeholder="Name of analyst"
+              />
+            </label>
+            <label>
+              Unit Number
+              <input
+                type="text"
+                id="unitNumber"
+                placeholder="e.g., 2231"
+              />
+            </label>
+            <label>
               Notes
               <input
                 type="text"
@@ -348,25 +397,6 @@
           </div>
         </section>
 
-        <section class="card">
-          <div class="panel-header">
-            <span>Platform Entry Speeds</span>
-            <span class="subtle">Station halt data</span>
-          </div>
-          <div class="table-wrapper">
-            <table id="dataTable">
-              <thead>
-                <tr>
-                  <th>Station</th>
-                  <th>PF Entry</th>
-                  <th>Mid PF</th>
-                  <th>1 Coach</th>
-                </tr>
-              </thead>
-              <tbody></tbody>
-            </table>
-          </div>
-        </section>
 
         <section class="card">
           <div class="panel-header">
@@ -395,7 +425,7 @@
         <section class="card">
           <div class="panel-header">
             <span>Platform Entry Analysis</span>
-            <span class="subtle">Speed progression from platform entry to halt</span>
+            <span class="subtle">Speed drop from PF entry to stop</span>
           </div>
           <div id="platformEntryCharts" class="segment-charts"></div>
         </section>
@@ -406,6 +436,44 @@
           </div>
           <div id="brakeFeelStatus" class="subtle" style="margin-bottom:8px;">Brake feel detection pending...</div>
           <div id="brakeFeelChart" class="brakefeel-chart"></div>
+        </section>
+        <section class="card">
+          <div class="panel-header">
+            <span>Trip Summary</span>
+            <span class="subtle">Exceptions & observations</span>
+          </div>
+          <table class="summary-table" id="tripSummaryTable">
+            <thead>
+              <tr><th>Category</th><th>Details</th></tr>
+            </thead>
+            <tbody>
+              <tr class="section-title"><td colspan="2">Platform Entry Speeds</td></tr>
+              <tr>
+                <td colspan="2">
+                  <table class="summary-table">
+                    <thead>
+                      <tr>
+                        <th>PF Entry > 40</th>
+                        <th>Mid PF > 25</th>
+                        <th>1 Coach > 10</th>
+                      </tr>
+                    </thead>
+                    <tbody id="pfSummaryBody">
+                      <tr><td colspan="3" class="no-data">No exceptions detected</td></tr>
+                    </tbody>
+                  </table>
+                </td>
+              </tr>
+              <tr class="section-title"><td colspan="2">MPS/PSR Violations</td></tr>
+              <tr><td colspan="2">No data available</td></tr>
+              <tr class="section-title"><td colspan="2">Brake Feel Test</td></tr>
+              <tr><td>Train start time</td><td id="bftStartTime">-</td></tr>
+              <tr><td>Test time</td><td id="bftTestTime">-</td></tr>
+              <tr><td>Test speed</td><td id="bftTestSpeed">-</td></tr>
+              <tr><td>Speed dropped to</td><td id="bftDropSpeed">-</td></tr>
+              <tr><td>Observation</td><td id="bftObservation">No data</td></tr>
+            </tbody>
+          </table>
         </section>
       </main>
     </div>
@@ -418,19 +486,43 @@
       const processBtn = document.getElementById("processBtn");
       const clearBtn = document.getElementById("clearBtn");
 
-      const renderTable = (rows = []) => {
-        const tbody = document.querySelector("#dataTable tbody");
-        tbody.innerHTML = "";
-        rows.forEach((row) => {
-          const tr = document.createElement("tr");
-          tr.innerHTML = `
-            <td>${row.station}</td>
-            <td>${row.pf_entry !== null && row.pf_entry !== undefined ? row.pf_entry : '-'}</td>
-            <td>${row.mid_pf !== null && row.mid_pf !== undefined ? row.mid_pf : '-'}</td>
-            <td>${row.one_coach !== null && row.one_coach !== undefined ? row.one_coach : '-'}</td>
-          `;
-          tbody.appendChild(tr);
+      const renderExceptionsTable = (markers = []) => {
+        const tbody = document.getElementById("pfSummaryBody");
+        if (!tbody) return;
+
+        const pfEntries = [];
+        const midEntries = [];
+        const oneEntries = [];
+
+        (markers || []).forEach((marker) => {
+          if (marker.platform_entry_speed > 40) {
+            pfEntries.push(`${marker.station} · ${marker.platform_entry_speed} km/h`);
+          }
+          if (marker.mid_platform_speed > 25) {
+            midEntries.push(`${marker.station} · ${marker.mid_platform_speed} km/h`);
+          }
+          if (marker.one_coach_speed > 10) {
+            oneEntries.push(`${marker.station} · ${marker.one_coach_speed} km/h`);
+          }
         });
+
+        const maxRows = Math.max(pfEntries.length, midEntries.length, oneEntries.length);
+        if (maxRows === 0) {
+          tbody.innerHTML = `<tr><td colspan="3" class="no-data">No exceptions detected</td></tr>`;
+          return;
+        }
+
+        let rowsHtml = "";
+        for (let i = 0; i < maxRows; i++) {
+          rowsHtml += `
+            <tr>
+              <td>${pfEntries[i] ?? "-"}</td>
+              <td>${midEntries[i] ?? "-"}</td>
+              <td>${oneEntries[i] ?? "-"}</td>
+            </tr>
+          `;
+        }
+        tbody.innerHTML = rowsHtml;
       };
 
       let chart = null;
@@ -438,6 +530,7 @@
       let platformEntryCharts = [];
       let brakeFeelChart = null;
       const brakeFeelStatusEl = document.getElementById("brakeFeelStatus");
+      const tripSummaryTable = document.getElementById("tripSummaryTable");
 
       function initChart() {
         const chartEl = document.getElementById("chart");
@@ -714,11 +807,9 @@
         const maxDistance = Math.max(...samples.map(s => s.cumulative_distance));
         const sampleInMeters = maxDistance > 100;
 
-        // Combine ALL stations in ONE chart
         const stationsToRender = validMarkers;  // All halts
         const colors = ['#4285f4', '#ea4335', '#fbbc05', '#34a853', '#9c27b0', '#ff6b6b', '#4ecdc4', '#45b7d1', '#f9ca24', '#6c5ce7'];
-        const allSeries = [];
-        const stationNames = [];
+        const stationSeries = [];
 
         stationsToRender.forEach((marker, idx) => {
           const stationName = marker.station;
@@ -755,119 +846,126 @@
           }
 
           if (dataPoints.length > 0) {
-            const seriesConfig = {
+            stationSeries.push({
               name: stationName,
-              type: 'line',
               data: dataPoints,
-              smooth: 0.4,
-              lineStyle: { color: colors[idx % colors.length], width: 3 },
-              symbol: 'circle',
-              symbolSize: 0,
-              showSymbol: false
-            };
-
-            // Add reference lines only to first series
-            if (idx === 0) {
-              seriesConfig.markLine = {
-                silent: true,
-                symbol: 'none',
-                label: {
-                  position: 'end',
-                  formatter: '{b}',
-                  fontSize: 9
-                },
-                lineStyle: {
-                  type: 'dashed',
-                  color: '#999',
-                  width: 1
-                },
-                data: [
-                  { xAxis: 130, name: '130m' },
-                  { xAxis: 20, name: '20m' }
-                ]
-              };
-            }
-
-            allSeries.push(seriesConfig);
-            stationNames.push(stationName);
+              color: colors[idx % colors.length]
+            });
           }
         });
 
-        if (allSeries.length === 0) return;
+        if (stationSeries.length === 0) return;
 
-        // Create ONE chart with all stations
-        const chartWrapper = document.createElement("div");
-        chartWrapper.className = "segment-chart";
+        const linesPerChart = 5;
+        let groupCounter = 0;
 
-        const title = document.createElement("div");
-        title.className = "segment-title";
-        title.textContent = `Speed vs Distance - Station`;
+        for (let start = 0; start < stationSeries.length; start += linesPerChart) {
+          const groupSeries = stationSeries.slice(start, start + linesPerChart).map(series => ({
+            name: series.name,
+            type: 'line',
+            data: series.data.map(point => [...point]),
+            smooth: 0.4,
+            lineStyle: { color: series.color, width: 3 },
+            symbol: 'circle',
+            symbolSize: 0,
+            showSymbol: false
+          }));
 
-        chartWrapper.appendChild(title);
-        const chartDiv = document.createElement("div");
-        chartDiv.className = "segment-chart-inner";
-        chartWrapper.appendChild(chartDiv);
-        container.appendChild(chartWrapper);
+          if (!groupSeries.length) continue;
 
-        const platformChart = echarts.init(chartDiv);
-        platformEntryCharts.push(platformChart);
+          groupSeries[0].markLine = {
+            silent: true,
+            symbol: 'none',
+            label: {
+              position: 'end',
+              formatter: '{b}',
+              fontSize: 9
+            },
+            lineStyle: {
+              type: 'dashed',
+              color: '#999',
+              width: 1
+            },
+            data: [
+              { xAxis: 126, name: '126m' },
+              { xAxis: 17, name: '17m' }
+            ]
+          };
 
-        platformChart.setOption({
-          tooltip: {
-            trigger: 'axis',
-            formatter: function(params) {
-              if (!params || params.length === 0) return '';
-              const dist = params[0].value[0];
-              let result = `Distance: ${dist}m from halt<br/>`;
-              params.forEach(p => {
-                if (p.value && p.value[1] !== null) {
-                  result += `${p.seriesName}: ${p.value[1].toFixed(1)} km/h<br/>`;
-                }
-              });
-              return result;
-            }
-          },
-          legend: {
-            data: stationNames,
-            top: 5,
-            textStyle: { fontSize: 9 }
-          },
-          grid: {
-            left: '8%',
-            right: '3%',
-            bottom: '15%',
-            top: '15%',
-            containLabel: true
-          },
-          xAxis: {
-            type: 'value',
-            name: 'Distance',
-            nameLocation: 'middle',
-            nameGap: 25,
-            inverse: true,
-            splitNumber: 10,
-            minInterval: 1,
-            axisLabel: {
-              fontSize: 9,
-              formatter: function(value) {
-                if (value === 0) return 'Halt';
-                if (value === 20) return '20m';
-                if (value === 130) return '130m';
-                return value + 'm';
+          const chartWrapper = document.createElement("div");
+          chartWrapper.className = "segment-chart";
+
+          const title = document.createElement("div");
+          title.className = "segment-title";
+          groupCounter += 1;
+          title.textContent = `Speed vs Distance - Group ${groupCounter}`;
+
+          chartWrapper.appendChild(title);
+          const chartDiv = document.createElement("div");
+          chartDiv.className = "segment-chart-inner";
+          chartWrapper.appendChild(chartDiv);
+          container.appendChild(chartWrapper);
+
+          const platformChart = echarts.init(chartDiv);
+          platformEntryCharts.push(platformChart);
+
+          platformChart.setOption({
+            tooltip: {
+              trigger: 'axis',
+              formatter: function(params) {
+                if (!params || params.length === 0) return '';
+                const dist = params[0].value[0];
+                let result = `Distance: ${dist}m from halt<br/>`;
+                params.forEach(p => {
+                  if (p.value && p.value[1] !== null) {
+                    result += `${p.seriesName}: ${p.value[1].toFixed(1)} km/h<br/>`;
+                  }
+                });
+                return result;
               }
-            }
-          },
-          yAxis: {
-            type: 'value',
-            name: 'Speed',
-            nameLocation: 'middle',
-            nameGap: 35,
-            min: 0,
-            max: 50,
-            axisLabel: { fontSize: 9 }
-          },
-          series: allSeries
-        });
+            },
+            legend: {
+              data: groupSeries.map(s => s.name),
+              top: 5,
+              textStyle: { fontSize: 9 }
+            },
+            grid: {
+              left: '8%',
+              right: '3%',
+              bottom: '15%',
+              top: '15%',
+              containLabel: true
+            },
+            xAxis: {
+              type: 'value',
+              name: 'Distance',
+              nameLocation: 'middle',
+              nameGap: 25,
+              inverse: true,
+              splitNumber: 10,
+              minInterval: 1,
+              axisLabel: {
+                fontSize: 9,
+                formatter: function(value) {
+                  if (value === 0) return 'Halt';
+                  if (value === 17) return '17m';
+                  if (value === 126) return '126m';
+                  return value + 'm';
+                }
+              }
+            },
+            yAxis: {
+              type: 'value',
+              name: 'Speed',
+              nameLocation: 'middle',
+              nameGap: 35,
+              min: 0,
+              max: 50,
+              axisLabel: { fontSize: 9 }
+            },
+            series: groupSeries
+          });
+        }
       }
 
       function renderBrakeFeelChart(samples, brakeTests, firstHaltIndex) {
@@ -977,6 +1075,38 @@
         });
       }
 
+      function renderTripSummary(stationMarkers, brakeTests, samples) {
+        renderExceptionsTable(stationMarkers || []);
+
+        const startCell = document.getElementById("bftStartTime");
+        const testTimeCell = document.getElementById("bftTestTime");
+        const testSpeedCell = document.getElementById("bftTestSpeed");
+        const dropSpeedCell = document.getElementById("bftDropSpeed");
+        const observationCell = document.getElementById("bftObservation");
+
+        if (!startCell || !testTimeCell || !testSpeedCell || !dropSpeedCell || !observationCell) {
+          return;
+        }
+
+        if (brakeTests && brakeTests.length) {
+          const test = brakeTests[0];
+          const startSample = samples[test.max_speed_index] || samples[test.braking_start_index] || {};
+          const recoverySample = samples[test.recovery_index] || {};
+
+          startCell.textContent = samples[0]?.timestamp ?? "-";
+          testTimeCell.textContent = startSample.timestamp ?? "-";
+          testSpeedCell.textContent = test.braking_start_speed != null ? `${test.braking_start_speed} km/h` : "-";
+          dropSpeedCell.textContent = test.lowest_speed != null ? `${test.lowest_speed} km/h` : "-";
+          observationCell.textContent = "Brake feel test detected";
+        } else {
+          startCell.textContent = samples[0]?.timestamp ?? "-";
+          testTimeCell.textContent = "-";
+          testSpeedCell.textContent = "-";
+          dropSpeedCell.textContent = "-";
+          observationCell.textContent = "No brake feel test detected";
+        }
+      }
+
       const CHART_API_BASE = "http://127.0.0.1:8000";
       let currentRunId = null;
 
@@ -996,6 +1126,9 @@
         formData.append("from_station", document.getElementById("fromStation").value);
         formData.append("to_station", document.getElementById("toStation").value);
         formData.append("train_number", document.getElementById("trainNumber").value);
+        formData.append("date_of_working", document.getElementById("dateOfWorking").value);
+        formData.append("analysed_by", document.getElementById("analysedBy").value);
+        formData.append("unit_number", document.getElementById("unitNumber").value);
         formData.append("notes", document.getElementById("notes").value);
 
         try {
@@ -1159,23 +1292,7 @@
 
           // Update table with station halt data showing platform entry speeds
           // Filter out starting stations (where platform_entry_speed is 0 or null)
-          let tableRows = payload.station_markers ? payload.station_markers
-            .filter(marker => marker.platform_entry_speed !== 0 && marker.platform_entry_speed !== null)
-            .map((marker) => ({
-              station: marker.station,
-              pf_entry: marker.platform_entry_speed,
-              mid_pf: marker.mid_platform_speed,
-              one_coach: marker.one_coach_speed
-            })) : [];
-          if (!tableRows.length) {
-            tableRows = samples.slice(0, 15).map((sample) => ({
-              station: sample.timestamp ?? "-",
-              pf_entry: sample.speed ?? "-",
-              mid_pf: sample.cumulative_distance ?? sample.distance ?? "-",
-              one_coach: sample.station ?? ""
-            }));
-          }
-          renderTable(tableRows);
+          renderExceptionsTable(payload.station_markers || []);
 
           // Update chart with all data
           const distances = samples.map((s) => s.cumulative_distance ? s.cumulative_distance.toFixed(1) : s.distance.toFixed(1));
@@ -1350,6 +1467,7 @@
           renderSegmentCharts(samples, payload.station_markers, brakeTests);
           renderPlatformEntryCharts(samples, payload.station_markers, payload.platform_entry_data);
           renderBrakeFeelChart(samples, brakeTests, payload.first_halt_index);
+          renderTripSummary(payload.station_markers, brakeTests, samples);
 
         } catch (err) {
           console.error(err);
