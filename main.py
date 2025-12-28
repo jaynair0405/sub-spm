@@ -7,13 +7,14 @@ import polars as pl
 import pandas as pd
 import tempfile
 from datetime import datetime
-
+from spm_db import insert_run, insert_station_windows, insert_window_points
 from corridor_loader import CorridorManager
 from psr_mps import PSRMPSCalculator, detect_violations
 from halt_detection import HaltDetector, calculate_cumulative_distance
 from platform_entry_speed import PlatformEntryCalculator
 from brakefeel_detector import BrakeFeelDetector
 from station_km_maps import get_station_km_map_for_train_type
+from spm_db import get_run, get_points, list_runs
 
 app = FastAPI(title="SPM Analysis API")
 
@@ -50,7 +51,10 @@ async def startup_event():
     corridor_manager.load_fast_halts()
     print(f"✓ Loaded {len(corridor_manager.corridors)} corridors")
     print(f"✓ Loaded {len(corridor_manager.train_code_map)} train codes")
-
+    from db_config import get_db_connection
+    cn = get_db_connection()
+    cn.close()
+    print("✓ DB connection OK")
 
 @app.get("/")
 async def root():
@@ -65,7 +69,7 @@ async def root():
 @app.get("/spm.html")
 async def serve_spm_html():
     """Serve the SPM analysis HTML interface"""
-    html_path = DATA_ROOT / "spm.html"
+    html_path = DATA_ROOT / "ui" / "spm.html"
     if not html_path.exists():
         raise HTTPException(status_code=404, detail="spm.html not found")
     return FileResponse(html_path)
@@ -256,6 +260,8 @@ async def upload_spm_file(
         halting_station_map = {}
         psr_values = []
         violations = []
+        platform_entry_data: Dict[str, Dict[str, Any]] = {}
+        entry_calculator: Optional[PlatformEntryCalculator] = None
 
         if train_number:
             corridor_info = corridor_manager.resolve_corridor(
@@ -472,6 +478,31 @@ async def upload_spm_file(
                         traceback.print_exc()
                         # Continue without PSR data
 
+        spm_rows = df.to_dicts()
+
+        if halting_station_map and ordered_stations:
+            entry_samples_for_calc = [
+                {
+                    "cumulative_distance": float(row.get("cumulative_distance") or 0.0),
+                    "speed": float(row.get("Speed") or 0.0)
+                }
+                for row in spm_rows
+            ]
+            try:
+                if entry_calculator is None:
+                    entry_calculator = PlatformEntryCalculator()
+                platform_entry_data = entry_calculator.calculate_platform_entry_speeds(
+                    halting_station_map,
+                    ordered_stations,
+                    entry_samples_for_calc,
+                    train_type or "slow"
+                )
+            except Exception as entry_error:
+                print(f"[ERROR] Could not calculate platform entry speeds: {entry_error}")
+                import traceback
+                traceback.print_exc()
+                platform_entry_data = {}
+
         # Generate run ID
         run_id = f"RUN_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
 
@@ -494,11 +525,115 @@ async def upload_spm_file(
             "ordered_stations": ordered_stations if 'ordered_stations' in locals() else [],
             "violations": violations,
             "violation_count": len(violations),
-            "data": df.to_dicts(),
+            "data": spm_rows,
             "row_count": len(df),
             "max_speed": float(df["Speed"].max()),
             "total_distance": float(df["Distance"].sum()),
+            "platform_entry_data": platform_entry_data,
         }
+        run_row = {
+        "run_id": run_id,
+       "uploaded_by_user_id": None,
+      "original_filename": file.filename,
+
+     "date_of_working": date_of_working,
+      "train_number": train_number,
+     "unit_no": unit_number,
+     "from_station": from_station,
+     "to_station": to_station,
+
+     "motorman_hrms_id": staff_id,
+     "motorman_cms_id": None,
+
+      "nom_cli_cms_id": None,
+        "done_by_cli_cms_id": None,
+
+        "abnormality_noticed": notes,   # your existing field
+         "max_speed": float(df["Speed"].max()),
+        "avg_speed": float(df["Speed"].mean()),
+        "total_distance": float(df["Distance"].sum()),
+}
+
+        insert_run(run_row)
+
+        station_window_rows = []
+        window_point_rows = []
+        if platform_entry_data:
+            distance_samples = list(halting_station_map.values())
+            if not distance_samples:
+                distance_samples = [
+                    float(row.get("cumulative_distance") or 0.0)
+                    for row in spm_rows
+                    if row.get("cumulative_distance") is not None
+                ]
+            calc_for_scale = entry_calculator or PlatformEntryCalculator()
+            use_meter_scale = calc_for_scale._is_meter_scale(distance_samples) if distance_samples else False
+            entry_calculator = calc_for_scale
+
+            for station_name, station_info in platform_entry_data.items():
+                halt_km = station_info.get("halt_distance")
+                halt_distance_raw = halting_station_map.get(station_name)
+                if halt_km is None or halt_distance_raw is None:
+                    continue
+
+                platform_length_km = station_info.get("platform_length_km")
+                platform_length_m = int(round(platform_length_km * 1000)) if platform_length_km is not None else None
+
+                station_window_rows.append((
+                    run_id,
+                    station_name,
+                    halt_km,
+                    platform_length_m,
+                    "isd",
+                    station_info.get("section"),
+                    station_info.get("entry_speed"),
+                    station_info.get("mid_platform_speed"),
+                    station_info.get("one_coach_speed"),
+                    station_info.get("entry_gap_m"),
+                    station_info.get("mid_gap_m"),
+                    station_info.get("one_coach_gap_m"),
+                    train_type
+                ))
+
+                entry_distance_km = station_info.get("entry_distance")
+                if entry_distance_km is None:
+                    continue
+
+                entry_distance_raw = entry_distance_km * (1000.0 if use_meter_scale else 1.0)
+                start_distance = min(entry_distance_raw, halt_distance_raw)
+                end_distance = max(entry_distance_raw, halt_distance_raw)
+                seq = 0
+                for row in spm_rows:
+                    cd_raw = row.get("cumulative_distance")
+                    if cd_raw is None:
+                        continue
+                    cd_val = float(cd_raw)
+                    if cd_val < start_distance:
+                        continue
+                    if cd_val > end_distance and seq > 0:
+                        break
+
+                    psr_val = row.get("PSR")
+                    if isinstance(psr_val, (list, tuple)):
+                        psr_val = next((v for v in psr_val if v is not None), None)
+                    psr_float = None if psr_val is None else float(psr_val)
+
+                    speed_val = float(row.get("Speed") or 0.0)
+                    time_val = row.get("Time")
+                    window_point_rows.append((
+                        run_id,
+                        station_name,
+                        seq,
+                        cd_val / 1000.0 if use_meter_scale else cd_val,
+                        speed_val,
+                        psr_float,
+                        str(time_val) if time_val is not None else ""
+                    ))
+                    seq += 1
+
+        insert_station_windows(station_window_rows)
+        insert_window_points(window_point_rows)
+
 
         return {
             "success": True,
@@ -570,36 +705,95 @@ async def get_chart_data(
     If run_id is provided, return that specific run
     Otherwise return the latest run matching the criteria
     """
-    # If specific run requested
+    # 1) If run_id is provided, try RAM first, then DB
     if run_id:
-        if run_id not in runs_storage:
-            raise HTTPException(status_code=404, detail="Run not found")
-        run_data = runs_storage[run_id]
-    else:
-        # Get latest run (or filter by criteria)
-        matching_runs = [
-            data for data in runs_storage.values()
-            if (not from_station_equals or data.get("from_station") == from_station_equals)
-            and (not to_station_equals or data.get("to_station") == to_station_equals)
-        ]
+        if run_id in runs_storage:
+            run_data = runs_storage[run_id]
+        else:
+            meta = get_run(run_id)
+            if not meta:
+                raise HTTPException(status_code=404, detail="Run not found")
 
-        if not matching_runs:
-            # Return sample data if no runs available
-            return {
-                "samples": [
-                    {
-                        "timestamp": f"10:{i:02d}",
-                        "distance": round(i * 0.5, 2),
-                        "speed": (i * 7) % 90,
-                        "station": "" if i % 5 else f"STN{i}",
-                    }
-                    for i in range(20)
-                ],
-                "message": "No runs found, showing sample data"
+            points = get_points(run_id)
+            if not points:
+                raise HTTPException(status_code=404, detail="Run points not found")
+
+            # Build a run_data dict shaped like your existing code expects
+            run_data = {
+                "run_id": run_id,
+                "staff_id": meta.get("motorman_hrms_id"),
+                "from_station": meta.get("from_station"),
+                "to_station": meta.get("to_station"),
+                "train_number": meta.get("train_number"),
+                "date_of_working": meta.get("date_of_working"),
+                "analysed_by": None,
+                "unit_number": meta.get("unit_no"),
+                "train_type": None,
+                "notes": meta.get("abnormality_noticed"),
+                "uploaded_at": meta.get("analysis_date").isoformat() if meta.get("analysis_date") else "",
+                "halting_stations": {},
+                "ordered_stations": [],
+                "violations": [],
+                "violation_count": 0,
+                "first_halt_index": None,
+                "data": points,
             }
 
-        # Get most recent run
-        run_data = max(matching_runs, key=lambda x: x["uploaded_at"])
+    # 2) If run_id is NOT provided, get latest from RAM, else latest from DB
+    else:
+        if runs_storage:
+            matching_runs = [
+                data for data in runs_storage.values()
+                if (not from_station_equals or data.get("from_station") == from_station_equals)
+                and (not to_station_equals or data.get("to_station") == to_station_equals)
+            ]
+            if matching_runs:
+                run_data = max(matching_runs, key=lambda x: x["uploaded_at"])
+            else:
+                run_data = None
+        else:
+            run_data = None
+
+        # Fallback to DB latest if RAM has nothing
+        if not run_data:
+            db_runs = list_runs(limit=200)  # returns latest by analysis_date
+            if from_station_equals:
+                db_runs = [r for r in db_runs if r.get("from_station") == from_station_equals]
+            if to_station_equals:
+                db_runs = [r for r in db_runs if r.get("to_station") == to_station_equals]
+
+            if not db_runs:
+                return {
+                    "samples": [
+                        {"timestamp": f"10:{i:02d}", "distance": round(i * 0.5, 2), "speed": (i * 7) % 90, "station": ""}
+                        for i in range(20)
+                    ],
+                    "message": "No runs found, showing sample data"
+                }
+
+            latest = db_runs[0]
+            run_id = latest["run_id"]
+            points = get_points(run_id)
+
+            run_data = {
+                "run_id": run_id,
+                "staff_id": latest.get("motorman_hrms_id"),
+                "from_station": latest.get("from_station"),
+                "to_station": latest.get("to_station"),
+                "train_number": latest.get("train_number"),
+                "date_of_working": latest.get("date_of_working"),
+                "analysed_by": None,
+                "unit_number": latest.get("unit_no"),
+                "train_type": None,
+                "notes": latest.get("abnormality_noticed"),
+                "uploaded_at": latest.get("analysis_date").isoformat() if latest.get("analysis_date") else "",
+                "halting_stations": {},
+                "ordered_stations": [],
+                "violations": [],
+                "violation_count": 0,
+                "first_halt_index": None,
+                "data": points,
+            }
 
     # Convert stored data to chart format
     samples = []
@@ -625,7 +819,8 @@ async def get_chart_data(
             if isinstance(psr_val, (list, tuple)) and len(psr_val) > 0:
                 psr_val = psr_val[0]  # Unwrap if it's a list
             if psr_val is not None:
-                sample["psr"] = int(psr_val)
+                sample["psr"] = float(psr_val)
+
 
         samples.append(sample)
         entry_samples.append({

@@ -283,6 +283,144 @@
           padding: 24px;
         }
       }
+      .meta-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 24px 20px; /* Row gap 24px, Column gap 20px */
+  margin-top: 10px;
+}
+
+.meta-item {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  position: relative;
+}
+
+/* Optional: Add a subtle divider line between rows on mobile if needed, 
+   but clean spacing usually looks better */
+
+.meta-label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.meta-value {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--brand);
+  font-family: "Inter", monospace; /* Monospace numbers look technical and precise */
+}
+
+/* Specific styling for the header of this section to match PDF "Office of Sr DEE" feel */
+.report-header-badge {
+  background: var(--brand-soft);
+  color: var(--brand);
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+/* Report Header Styles */
+.report-print-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px 5px;
+  border-bottom: 3px double var(--brand); /* Double line for official look */
+  margin-bottom: 20px;
+  background: #fff;
+}
+
+.header-left {
+  text-align: left;
+}
+
+.railway-title {
+  font-weight: 800;
+  font-size: 1.1rem;
+  color: var(--brand);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  line-height: 1.2;
+}
+
+.division-title {
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--text);
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+
+.office-title {
+  font-size: 0.85rem;
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.header-center {
+  flex-grow: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.logo-placeholder {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: #f0f4ff; /* Light blue background for placeholder */
+  border: 2px dashed var(--brand);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--brand);
+  font-size: 0.8rem;
+  text-align: center;
+  font-weight: 600;
+}
+
+/* If you have a real logo, use this class on the IMG tag inside header-center */
+.real-logo {
+  height: 80px;
+  width: auto;
+}
+
+.header-right {
+  text-align: right;
+}
+
+.report-name {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--brand);
+  margin-bottom: 6px;
+  letter-spacing: -0.02em;
+}
+
+.analysis-meta {
+  font-size: 0.9rem;
+  color: var(--text);
+}
+
+.analysis-date {
+  font-weight: 600;
+  color: var(--text);
+}
+
+/* Print specific adjustments */
+@media print {
+  body { background: white; }
+  .page-shell { padding: 0; max-width: 100%; }
+  .report-print-header { margin-top: 0; }
+  /* Hide the Upload/Input section when printing */
+  section.card:nth-of-type(1) { display: none !important; } 
+  header { display: none !important; } /* Hide the blue app header */
+}
     </style>
   </head>
   <body>
@@ -396,7 +534,89 @@
             </button>
           </div>
         </section>
+<div id="pdfHeader" class="report-print-header" style="display: none;">
+  
+  <div class="header-left">
+    <div class="railway-title">CENTRAL RAILWAY</div>
+    <div class="division-title">MUMBAI DIVISION</div>
+    <div class="office-title">OFFICE OF SR. DEE (TRO)</div>
+  </div>
 
+  <div class="header-center">
+    <div class="logo-placeholder">
+      Indian<br>Railways
+    </div>
+  </div>
+
+  <div class="header-right">
+    <div class="report-name">SPM ANALYSIS REPORT</div>
+    <div class="analysis-meta">
+      Date of Analysis: <span id="headerAnalysisDate" class="analysis-date">-</span>
+    </div>
+  </div>
+
+</div>
+       <section class="card" id="reportMetadata" style="display: none;">
+  <div class="panel-header">
+    <div style="display:flex; align-items:center; gap:12px;">
+      <span>Analysis Report Summary</span>
+      <!-- <span class="report-header-badge">CENTRAL RAILWAY • MUMBAI</span> -->
+    </div>
+    </div>
+
+  <div class="meta-grid">
+    <div class="meta-item">
+      <span class="meta-label">Date of Working</span>
+      <span class="meta-value" id="metaDate">-</span>
+    </div>
+    <div class="meta-item">
+      <span class="meta-label">Train Service</span>
+      <span class="meta-value" id="metaTrainInfo">-</span>
+    </div>
+    <div class="meta-item">
+      <span class="meta-label">LP / Staff Name</span>
+      <span class="meta-value" id="metaStaff">-</span>
+    </div>
+    <div class="meta-item">
+      <span class="meta-label">Nominated CLI</span>
+      <span class="meta-value" id="metaCli">-</span>
+    </div>
+
+    <div class="meta-item">
+      <span class="meta-label">Departure</span>
+      <span class="meta-value" id="metaDepTime">--:--:--</span>
+    </div>
+    <div class="meta-item">
+      <span class="meta-label">Arrival</span>
+      <span class="meta-value" id="metaArrTime">--:--:--</span>
+    </div>
+    <div class="meta-item">
+      <span class="meta-label">Total Distance</span>
+      <span class="meta-value" id="metaDistance">- km</span>
+    </div>
+    <div class="meta-item">
+      <span class="meta-label">Running Time</span>
+      <span class="meta-value" id="metaRunTime">- min</span>
+    </div>
+
+    <div class="meta-item">
+      <span class="meta-label">Route</span>
+      <span class="meta-value" id="metaRoute">-</span>
+    </div>
+    <div class="meta-item">
+      <span class="meta-label">Unit / Rake</span>
+      <span class="meta-value" id="metaUnit">-</span>
+    </div>
+    <div class="meta-item">
+      <span class="meta-label">Max Speed</span>
+      <span class="meta-value" id="metaMaxSpeed">- km/h</span>
+    </div>
+    <div class="meta-item">
+      <span class="meta-label">Analysed By</span>
+      <span class="meta-value" id="metaAnalyst">-</span>
+    </div>
+  </div>
+</section>
 
         <section class="card">
           <div class="panel-header">
@@ -1106,8 +1326,8 @@
           observationCell.textContent = "No brake feel test detected";
         }
       }
-
-      const CHART_API_BASE = "http://127.0.0.1:8000";
+      const CHART_API_BASE = "";
+      // const CHART_API_BASE = "http://127.0.0.1:8000";
       let currentRunId = null;
 
       async function uploadFile() {
@@ -1519,8 +1739,71 @@
           if (uploadResult && uploadResult.success) {
             currentRunId = uploadResult.run_id;
 
+            
+
             // Show success message
             const summary = uploadResult.summary;
+            
+            // 1. Show the Header
+    document.getElementById("pdfHeader").style.display = "flex"; // Use flex to keep alignment
+
+    // 2. Set "Date of Analysis" (Current Date)
+    const today = new Date();
+    // Formats to "26/12/2025" (Day/Month/Year)
+    const dateStr = today.toLocaleDateString('en-GB', {
+        day: '2-digit', 
+        month: '2-digit', 
+        year: 'numeric'
+    });
+    document.getElementById("headerAnalysisDate").textContent = dateStr;
+
+     // --- 1. Show the Section ---
+    document.getElementById("reportMetadata").style.display = "block";
+
+    // --- 2. Get Input Values ---
+    const trainNo = document.getElementById("trainNumber").value || "N/A";
+    const staffText = document.getElementById("staffId").options[document.getElementById("staffId").selectedIndex].text;
+    const fromStn = document.getElementById("fromStation").value || "?";
+    const toStn = document.getElementById("toStation").value || "?";
+    const analyst = document.getElementById("analysedBy").value || "Admin";
+    const unitNo = document.getElementById("unitNumber").value || "-";
+    
+    // --- 3. Format Date of Working ---
+    let workingDate = document.getElementById("dateOfWorking").value;
+    if(workingDate) {
+       // Convert YYYY-MM-DD to DD/MM/YYYY for display
+       const d = new Date(workingDate);
+       workingDate = d.toLocaleDateString('en-GB'); 
+    } else {
+       workingDate = "-";
+    }
+
+    // --- 4. Populate the Grid ---
+    document.getElementById("metaDate").textContent = workingDate;
+    document.getElementById("metaStaff").textContent = staffText;
+    document.getElementById("metaRoute").textContent = `${fromStn} ➝ ${toStn}`;
+    document.getElementById("metaUnit").textContent = unitNo;
+    document.getElementById("metaAnalyst").textContent = analyst;
+
+    // CLUBBING TRAIN NUMBER & TYPE
+    // Assuming backend sends 'train_type' (e.g., 'Slow', 'Fast'). 
+    // If not, default to empty string or 'Suburban'
+    const typeFromDB = uploadResult.train_type || "Suburban"; 
+    document.getElementById("metaTrainInfo").textContent = `${trainNo} / ${typeFromDB}`;
+
+    // NOMINATED CLI FROM DB
+    // Assuming backend sends 'nominated_cli'. 
+    // You mentioned this is fetched from DB.
+    document.getElementById("metaCli").textContent = uploadResult.nominated_cli || "Not Assigned";
+
+    // METRICS FROM SUMMARY
+    document.getElementById("metaDistance").textContent = (summary.total_distance || 0).toFixed(2) + " km";
+    document.getElementById("metaMaxSpeed").textContent = (summary.max_speed || 0) + " km/h";
+    
+    // TIMESTAMPS
+    if (uploadResult.start_time) document.getElementById("metaDepTime").textContent = uploadResult.start_time;
+    if (uploadResult.end_time) document.getElementById("metaArrTime").textContent = uploadResult.end_time;
+    if (uploadResult.duration) document.getElementById("metaRunTime").textContent = uploadResult.duration;
             let message = `✓ Upload successful!\n\n` +
               `Rows: ${uploadResult.rows_processed}\n` +
               `Max Speed: ${summary.max_speed} km/h\n` +

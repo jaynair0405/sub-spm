@@ -1,0 +1,902 @@
+{
+  "PNVL-KNDS": {
+    "section": "PNVL-KNDS",
+    "station": "PNVL",
+    "platform_length_km": 0.0
+  },
+  "KNDS-MANR": {
+    "section": "KNDS-MANR",
+    "station": "KNDS",
+    "platform_length_km": 0.276
+  },
+  "MANR-KHAG": {
+    "section": "MANR-KHAG",
+    "station": "MANR",
+    "platform_length_km": 0.274
+  },
+  "KHAG-BEPR": {
+    "section": "KHAG-BEPR",
+    "station": "KHAG",
+    "platform_length_km": 0.276
+  },
+  "BEPR-SWDV": {
+    "section": "BEPR-SWDV",
+    "station": "BEPR",
+    "platform_length_km": 0.27
+  },
+  "SWDV-NEU": {
+    "section": "SWDV-NEU",
+    "station": "SWDV",
+    "platform_length_km": 0.306
+  },
+  "NEU-JNJ": {
+    "section": "NEU-JNJ",
+    "station": "NEU",
+    "platform_length_km": 0.272
+  },
+  "JNJ-SNPD": {
+    "section": "JNJ-SNPD",
+    "station": "JNJ",
+    "platform_length_km": 0.27
+  },
+  "SNPD-VSH": {
+    "section": "SNPD-VSH",
+    "station": "SNPD",
+    "platform_length_km": 0.267
+  },
+  "VSH-MNKD": {
+    "section": "VSH-MNKD",
+    "station": "VSH",
+    "platform_length_km": 0.264
+  },
+  "MNKD-GV": {
+    "section": "MNKD-GV",
+    "station": "MNKD",
+    "platform_length_km": 0.267
+  },
+  "GV-CMBR": {
+    "section": "GV-CMBR",
+    "station": "GV",
+    "platform_length_km": 0.272
+  },
+  "CMBR-TKNG": {
+    "section": "CMBR-TKNG",
+    "station": "CMBR",
+    "platform_length_km": 0.264
+  },
+  "TKNG-CLA": {
+    "section": "TKNG-CLA",
+    "station": "TKNG",
+    "platform_length_km": 0.27
+  },
+  "CLA-CHF": {
+    "section": "CLA-CHF",
+    "station": "CLA",
+    "platform_length_km": 0.28
+  },
+  "CHF-GTBN": {
+    "section": "CHF-GTBN",
+    "station": "CHF",
+    "platform_length_km": 0.263
+  },
+  "GTBN-VDLR": {
+    "section": "GTBN-VDLR",
+    "station": "GTBN",
+    "platform_length_km": 0.262
+  },
+  "VDLR-SVE": {
+    "section": "VDLR-SVE",
+    "station": "VDLR",
+    "platform_length_km": 0.262
+  },
+  "SVE-CTGN": {
+    "section": "SVE-CTGN",
+    "station": "SVE",
+    "platform_length_km": 0.281
+  },
+  "CTGN-RRD": {
+    "section": "CTGN-RRD",
+    "station": "CTGN",
+    "platform_length_km": 0.267
+  },
+  "RRD-DKRD": {
+    "section": "RRD-DKRD",
+    "station": "RRD",
+    "platform_length_km": 0.264
+  },
+  "DKRD-SNRDH": {
+    "section": "DKRD-SNRDH",
+    "station": "DKRD",
+    "platform_length_km": 0.265
+  },
+  "SNRDH-MSDH": {
+    "section": "SNRDH-MSDH",
+    "station": "SNRDH",
+    "platform_length_km": 0.263
+  },
+  "MSDH-CSMTH": {
+    "section": "MSDH-CSMTH",
+    "station": "MSDH",
+    "platform_length_km": 0.268
+  },
+  "MSDH-CSMTH_CSMTH": {
+    "section": "MSDH-CSMTH",
+    "station": "CSMTH",
+    "platform_length_km": 0.265
+  },
+  "KYN-THK": {
+    "section": "KYN-THK",
+    "station": "KYN",
+    "platform_length_km": 0.0
+  },
+  "THK-DI": {
+    "section": "THK-DI",
+    "station": "THK",
+    "platform_length_km": 0.265
+  },
+  "DI-KOPR": {
+    "section": "DI-KOPR",
+    "station": "DI",
+    "platform_length_km": 0.329
+  },
+  "KOPR-DW": {
+    "section": "KOPR-DW",
+    "station": "KOPR",
+    "platform_length_km": 0.265
+  },
+  "DW-MBQ": {
+    "section": "DW-MBQ",
+    "station": "DW",
+    "platform_length_km": 0.268
+  },
+  "MBQ-KLVA": {
+    "section": "MBQ-KLVA",
+    "station": "MBQ",
+    "platform_length_km": 0.271
+  },
+  "KLVA-TNA": {
+    "section": "KLVA-TNA",
+    "station": "KLVA",
+    "platform_length_km": 0.262
+  },
+  "TNA-MLND": {
+    "section": "TNA-MLND",
+    "station": "TNA",
+    "platform_length_km": 0.266
+  },
+  "MLND-NHR": {
+    "section": "MLND-NHR",
+    "station": "MLND",
+    "platform_length_km": 0.288
+  },
+  "NHR-BND": {
+    "section": "NHR-BND",
+    "station": "NHR",
+    "platform_length_km": 0.271
+  },
+  "BND-KJMG": {
+    "section": "BND-KJMG",
+    "station": "BND",
+    "platform_length_km": 0.272
+  },
+  "KJMG-VK": {
+    "section": "KJMG-VK",
+    "station": "KJMG",
+    "platform_length_km": 0.274
+  },
+  "VK-GC": {
+    "section": "VK-GC",
+    "station": "VK",
+    "platform_length_km": 0.262
+  },
+  "GC-VVH": {
+    "section": "GC-VVH",
+    "station": "GC",
+    "platform_length_km": 0.269
+  },
+  "VVH-CLA": {
+    "section": "VVH-CLA",
+    "station": "VVH",
+    "platform_length_km": 0.262
+  },
+  "CLA-SION": {
+    "section": "CLA-SION",
+    "station": "CLA",
+    "platform_length_km": 0.265
+  },
+  "SION-MTN": {
+    "section": "SION-MTN",
+    "station": "SION",
+    "platform_length_km": 0.277
+  },
+  "MTN-DR": {
+    "section": "MTN-DR",
+    "station": "MTN",
+    "platform_length_km": 0.265
+  },
+  "DR-PR": {
+    "section": "DR-PR",
+    "station": "DR",
+    "platform_length_km": 0.261
+  },
+  "PR-CRD": {
+    "section": "PR-CRD",
+    "station": "PR",
+    "platform_length_km": 0.268
+  },
+  "CRD-CHG": {
+    "section": "CRD-CHG",
+    "station": "CRD",
+    "platform_length_km": 0.267
+  },
+  "CHG-BY": {
+    "section": "CHG-BY",
+    "station": "CHG",
+    "platform_length_km": 0.268
+  },
+  "BY-SNRD": {
+    "section": "BY-SNRD",
+    "station": "BY",
+    "platform_length_km": 0.267
+  },
+  "SNRD-MSD": {
+    "section": "SNRD-MSD",
+    "station": "SNRD",
+    "platform_length_km": 0.265
+  },
+  "MSD-CSMT": {
+    "section": "MSD-CSMT",
+    "station": "MSD",
+    "platform_length_km": 0.26
+  },
+  "MSD-CSMT_CSMT": {
+    "section": "MSD-CSMT",
+    "station": "CSMT",
+    "platform_length_km": 0.26
+  },
+  "TNA-DIGH": {
+    "section": "TNA-DIGH",
+    "station": "TNA",
+    "platform_length_km": 0.0
+  },
+  "DIGH-AIRL": {
+    "section": "DIGH-AIRL",
+    "station": "DIGH",
+    "platform_length_km": 0.27
+  },
+  "AIRL-RABE": {
+    "section": "AIRL-RABE",
+    "station": "AIRL",
+    "platform_length_km": 0.27
+  },
+  "RABE-GNSL": {
+    "section": "RABE-GNSL",
+    "station": "RABE",
+    "platform_length_km": 0.27
+  },
+  "GNSL-KPHN": {
+    "section": "GNSL-KPHN",
+    "station": "GNSL",
+    "platform_length_km": 0.276
+  },
+  "KPHN-TUH": {
+    "section": "KPHN-TUH",
+    "station": "KPHN",
+    "platform_length_km": 0.28
+  },
+  "TUH-JNJ": {
+    "section": "TUH-JNJ",
+    "station": "TUH",
+    "platform_length_km": 0.285
+  },
+  "JNJ-NEU_THB": {
+    "section": "JNJ-NEU_THB",
+    "station": "JNJ",
+    "platform_length_km": 0.27
+  },
+  "NEU_THB-SWDV": {
+    "section": "NEU_THB-SWDV",
+    "station": "NEU_THB",
+    "platform_length_km": 0.285
+  },
+  "TUH-SNPD": {
+    "section": "TUH-SNPD",
+    "station": "TUH",
+    "platform_length_km": 0.285
+  },
+  "SNPD-VSH_THB": {
+    "section": "SNPD-VSH_THB",
+    "station": "SNPD",
+    "platform_length_km": 0.263
+  },
+  "SNPD-VSH_THB_VSH_THB": {
+    "section": "SNPD-VSH_THB",
+    "station": "VSH_THB",
+    "platform_length_km": 0.27
+  },
+  "CSMTH-MSDH": {
+    "section": "CSMTH-MSDH",
+    "station": "CSMTH",
+    "platform_length_km": 0.0
+  },
+  "MSDH-SNRDH": {
+    "section": "MSDH-SNRDH",
+    "station": "MSDH",
+    "platform_length_km": 0.269
+  },
+  "SNRDH-DKRD": {
+    "section": "SNRDH-DKRD",
+    "station": "SNRDH",
+    "platform_length_km": 0.269
+  },
+  "DKRD-RRD": {
+    "section": "DKRD-RRD",
+    "station": "DKRD",
+    "platform_length_km": 0.27
+  },
+  "RRD-CTGN": {
+    "section": "RRD-CTGN",
+    "station": "RRD",
+    "platform_length_km": 0.27
+  },
+  "CTGN-SVE": {
+    "section": "CTGN-SVE",
+    "station": "CTGN",
+    "platform_length_km": 0.269
+  },
+  "SVE-VDLR": {
+    "section": "SVE-VDLR",
+    "station": "SVE",
+    "platform_length_km": 0.27
+  },
+  "VDLR-GTBN": {
+    "section": "VDLR-GTBN",
+    "station": "VDLR",
+    "platform_length_km": 0.267
+  },
+  "GTBN-CHF": {
+    "section": "GTBN-CHF",
+    "station": "GTBN",
+    "platform_length_km": 0.269
+  },
+  "CHF-CLA": {
+    "section": "CHF-CLA",
+    "station": "CHF",
+    "platform_length_km": 0.266
+  },
+  "CLA-TKNG": {
+    "section": "CLA-TKNG",
+    "station": "CLA",
+    "platform_length_km": 0.267
+  },
+  "TKNG-CMBR": {
+    "section": "TKNG-CMBR",
+    "station": "TKNG",
+    "platform_length_km": 0.267
+  },
+  "CMBR-GV": {
+    "section": "CMBR-GV",
+    "station": "CMBR",
+    "platform_length_km": 0.269
+  },
+  "GV-MNKD": {
+    "section": "GV-MNKD",
+    "station": "GV",
+    "platform_length_km": 0.27
+  },
+  "MNKD-VSH": {
+    "section": "MNKD-VSH",
+    "station": "MNKD",
+    "platform_length_km": 0.268
+  },
+  "VSH-SNPD": {
+    "section": "VSH-SNPD",
+    "station": "VSH",
+    "platform_length_km": 0.268
+  },
+  "SNPD-JNJ": {
+    "section": "SNPD-JNJ",
+    "station": "SNPD",
+    "platform_length_km": 0.268
+  },
+  "JNJ-NEU": {
+    "section": "JNJ-NEU",
+    "station": "JNJ",
+    "platform_length_km": 0.268
+  },
+  "NEU-SWDV": {
+    "section": "NEU-SWDV",
+    "station": "NEU",
+    "platform_length_km": 0.269
+  },
+  "SWDV-BEPR": {
+    "section": "SWDV-BEPR",
+    "station": "SWDV",
+    "platform_length_km": 0.27
+  },
+  "BEPR-KHAG": {
+    "section": "BEPR-KHAG",
+    "station": "BEPR",
+    "platform_length_km": 0.268
+  },
+  "KHAG-MANR": {
+    "section": "KHAG-MANR",
+    "station": "KHAG",
+    "platform_length_km": 0.266
+  },
+  "MANR-KNDS": {
+    "section": "MANR-KNDS",
+    "station": "MANR",
+    "platform_length_km": 0.268
+  },
+  "KNDS-PNVL": {
+    "section": "KNDS-PNVL",
+    "station": "KNDS",
+    "platform_length_km": 0.268
+  },
+  "KNDS-PNVL_PNVL": {
+    "section": "KNDS-PNVL",
+    "station": "PNVL",
+    "platform_length_km": 0.27
+  },
+  "CSMT-MSD": {
+    "section": "CSMT-MSD",
+    "station": "CSMT",
+    "platform_length_km": 0.0
+  },
+  "MSD-SNRD": {
+    "section": "MSD-SNRD",
+    "station": "MSD",
+    "platform_length_km": 0.268
+  },
+  "SNRD-BY": {
+    "section": "SNRD-BY",
+    "station": "SNRD",
+    "platform_length_km": 0.269
+  },
+  "BY-CHG": {
+    "section": "BY-CHG",
+    "station": "BY",
+    "platform_length_km": 0.272
+  },
+  "CHG-CRD": {
+    "section": "CHG-CRD",
+    "station": "CHG",
+    "platform_length_km": 0.269
+  },
+  "CRD-PR": {
+    "section": "CRD-PR",
+    "station": "CRD",
+    "platform_length_km": 0.269
+  },
+  "PR-DR": {
+    "section": "PR-DR",
+    "station": "PR",
+    "platform_length_km": 0.31
+  },
+  "DR-MTN": {
+    "section": "DR-MTN",
+    "station": "DR",
+    "platform_length_km": 0.269
+  },
+  "MTN-SION": {
+    "section": "MTN-SION",
+    "station": "MTN",
+    "platform_length_km": 0.266
+  },
+  "SION-CLA": {
+    "section": "SION-CLA",
+    "station": "SION",
+    "platform_length_km": 0.285
+  },
+  "CLA-VVH": {
+    "section": "CLA-VVH",
+    "station": "CLA",
+    "platform_length_km": 0.273
+  },
+  "VVH-GC": {
+    "section": "VVH-GC",
+    "station": "VVH",
+    "platform_length_km": 0.269
+  },
+  "GC-VK": {
+    "section": "GC-VK",
+    "station": "GC",
+    "platform_length_km": 0.277
+  },
+  "VK-KJMG": {
+    "section": "VK-KJMG",
+    "station": "VK",
+    "platform_length_km": 0.266
+  },
+  "KJMG-BND": {
+    "section": "KJMG-BND",
+    "station": "KJMG",
+    "platform_length_km": 0.274
+  },
+  "BND-NHR": {
+    "section": "BND-NHR",
+    "station": "BND",
+    "platform_length_km": 0.271
+  },
+  "NHR-MLND": {
+    "section": "NHR-MLND",
+    "station": "NHR",
+    "platform_length_km": 0.267
+  },
+  "MLND-TNA": {
+    "section": "MLND-TNA",
+    "station": "MLND",
+    "platform_length_km": 0.272
+  },
+  "TNA-KLVA": {
+    "section": "TNA-KLVA",
+    "station": "TNA",
+    "platform_length_km": 0.274
+  },
+  "KLVA-MBQ": {
+    "section": "KLVA-MBQ",
+    "station": "KLVA",
+    "platform_length_km": 0.265
+  },
+  "MBQ-DW": {
+    "section": "MBQ-DW",
+    "station": "MBQ",
+    "platform_length_km": 0.273
+  },
+  "DW-KOPR": {
+    "section": "DW-KOPR",
+    "station": "DW",
+    "platform_length_km": 0.282
+  },
+  "KOPR-DI": {
+    "section": "KOPR-DI",
+    "station": "KOPR",
+    "platform_length_km": 0.276
+  },
+  "DI-THK": {
+    "section": "DI-THK",
+    "station": "DI",
+    "platform_length_km": 0.276
+  },
+  "THK-KYN": {
+    "section": "THK-KYN",
+    "station": "THK",
+    "platform_length_km": 0.264
+  },
+  "THK-KYN_KYN": {
+    "section": "THK-KYN",
+    "station": "KYN",
+    "platform_length_km": 0.265
+  },
+  "VSH_THB-SNPD": {
+    "section": "VSH_THB-SNPD",
+    "station": "VSH_THB",
+    "platform_length_km": 0.0
+  },
+  "SNPD-TUH": {
+    "section": "SNPD-TUH",
+    "station": "SNPD",
+    "platform_length_km": 0.264
+  },
+  "SWDV-NEU_THB": {
+    "section": "SWDV-NEU_THB",
+    "station": "SWDV",
+    "platform_length_km": 0.306
+  },
+  "NEU_THB-JNJ": {
+    "section": "NEU_THB-JNJ",
+    "station": "NEU_THB",
+    "platform_length_km": 0.285
+  },
+  "JNJ-TUH": {
+    "section": "JNJ-TUH",
+    "station": "JNJ",
+    "platform_length_km": 0.27
+  },
+  "TUH-KPHN": {
+    "section": "TUH-KPHN",
+    "station": "TUH",
+    "platform_length_km": 0.293
+  },
+  "KPHN-GNSL": {
+    "section": "KPHN-GNSL",
+    "station": "KPHN",
+    "platform_length_km": 0.271
+  },
+  "GNSL-RABE": {
+    "section": "GNSL-RABE",
+    "station": "GNSL",
+    "platform_length_km": 0.277
+  },
+  "RABE-AIRL": {
+    "section": "RABE-AIRL",
+    "station": "RABE",
+    "platform_length_km": 0.27
+  },
+  "AIRL-DIGH": {
+    "section": "AIRL-DIGH",
+    "station": "AIRL",
+    "platform_length_km": 0.27
+  },
+  "DIGH-TNA": {
+    "section": "DIGH-TNA",
+    "station": "DIGH",
+    "platform_length_km": 0.27
+  },
+  "DIGH-TNA_TNA": {
+    "section": "DIGH-TNA",
+    "station": "TNA",
+    "platform_length_km": 0.27
+  },
+  "KYN-SHD": {
+    "section": "KYN-SHD",
+    "station": "KYN",
+    "platform_length_km": 0.0
+  },
+  "SHD-ABY": {
+    "section": "SHD-ABY",
+    "station": "SHD",
+    "platform_length_km": 0.275
+  },
+  "ABY-TLA": {
+    "section": "ABY-TLA",
+    "station": "ABY",
+    "platform_length_km": 0.271
+  },
+  "TLA-KDV": {
+    "section": "TLA-KDV",
+    "station": "TLA",
+    "platform_length_km": 0.262
+  },
+  "KDV-VSD": {
+    "section": "KDV-VSD",
+    "station": "KDV",
+    "platform_length_km": 0.279
+  },
+  "VSD-ASO": {
+    "section": "VSD-ASO",
+    "station": "VSD",
+    "platform_length_km": 0.268
+  },
+  "ASO-ATG": {
+    "section": "ASO-ATG",
+    "station": "ASO",
+    "platform_length_km": 0.28
+  },
+  "ATG-THS": {
+    "section": "ATG-THS",
+    "station": "ATG",
+    "platform_length_km": 0.278
+  },
+  "THS-KE": {
+    "section": "THS-KE",
+    "station": "THS",
+    "platform_length_km": 0.27
+  },
+  "KE-OMB": {
+    "section": "KE-OMB",
+    "station": "KE",
+    "platform_length_km": 0.275
+  },
+  "OMB-KSRA": {
+    "section": "OMB-KSRA",
+    "station": "OMB",
+    "platform_length_km": 0.271
+  },
+  "OMB-KSRA_KSRA": {
+    "section": "OMB-KSRA",
+    "station": "KSRA",
+    "platform_length_km": 0.284
+  },
+  "VLDI-ULNR": {
+    "section": "VLDI-ULNR",
+    "station": "VLDI",
+    "platform_length_km": 0.264
+  },
+  "ULNR-ABH": {
+    "section": "ULNR-ABH",
+    "station": "ULNR",
+    "platform_length_km": 0.264
+  },
+  "ABH-BUD": {
+    "section": "ABH-BUD",
+    "station": "ABH",
+    "platform_length_km": 0.282
+  },
+  "BUD-VGI": {
+    "section": "BUD-VGI",
+    "station": "BUD",
+    "platform_length_km": 0.307
+  },
+  "VGI-SHELU": {
+    "section": "VGI-SHELU",
+    "station": "VGI",
+    "platform_length_km": 0.274
+  },
+  "SHELU-NRL": {
+    "section": "SHELU-NRL",
+    "station": "SHELU",
+    "platform_length_km": 0.262
+  },
+  "NRL-BVS": {
+    "section": "NRL-BVS",
+    "station": "NRL",
+    "platform_length_km": 0.333
+  },
+  "BVS-KJT": {
+    "section": "BVS-KJT",
+    "station": "BVS",
+    "platform_length_km": 0.275
+  },
+  "KJT-PDI": {
+    "section": "KJT-PDI",
+    "station": "KJT",
+    "platform_length_km": 0.262
+  },
+  "PDI-KLY": {
+    "section": "PDI-KLY",
+    "station": "PDI",
+    "platform_length_km": 0.271
+  },
+  "KLY-DLY": {
+    "section": "KLY-DLY",
+    "station": "KLY",
+    "platform_length_km": 0.28
+  },
+  "DLY-LWJ": {
+    "section": "DLY-LWJ",
+    "station": "DLY",
+    "platform_length_km": 0.274
+  },
+  "LWJ-KHPI": {
+    "section": "LWJ-KHPI",
+    "station": "LWJ",
+    "platform_length_km": 0.28
+  },
+  "LWJ-KHPI_KHPI": {
+    "section": "LWJ-KHPI",
+    "station": "KHPI",
+    "platform_length_km": 0.266
+  },
+  "KSRA-OMB": {
+    "section": "KSRA-OMB",
+    "station": "KSRA",
+    "platform_length_km": 0.0
+  },
+  "OMB-KE": {
+    "section": "OMB-KE",
+    "station": "OMB",
+    "platform_length_km": 0.269
+  },
+  "KE-THS": {
+    "section": "KE-THS",
+    "station": "KE",
+    "platform_length_km": 0.285
+  },
+  "THS-ATG": {
+    "section": "THS-ATG",
+    "station": "THS",
+    "platform_length_km": 0.275
+  },
+  "ATG-ASO": {
+    "section": "ATG-ASO",
+    "station": "ATG",
+    "platform_length_km": 0.272
+  },
+  "ASO-VSD": {
+    "section": "ASO-VSD",
+    "station": "ASO",
+    "platform_length_km": 0.275
+  },
+  "VSD-KDV": {
+    "section": "VSD-KDV",
+    "station": "VSD",
+    "platform_length_km": 0.266
+  },
+  "KDV-TLA": {
+    "section": "KDV-TLA",
+    "station": "KDV",
+    "platform_length_km": 0.266
+  },
+  "TLA-ABY": {
+    "section": "TLA-ABY",
+    "station": "TLA",
+    "platform_length_km": 0.267
+  },
+  "ABY-SHD": {
+    "section": "ABY-SHD",
+    "station": "ABY",
+    "platform_length_km": 0.27
+  },
+  "SHD-KYN": {
+    "section": "SHD-KYN",
+    "station": "SHD",
+    "platform_length_km": 0.27
+  },
+  "SHD-KYN_KYN": {
+    "section": "SHD-KYN",
+    "station": "KYN",
+    "platform_length_km": 0.27
+  },
+  "KHPI-LWJ": {
+    "section": "KHPI-LWJ",
+    "station": "KHPI",
+    "platform_length_km": 0.0
+  },
+  "LWJ-DLY": {
+    "section": "LWJ-DLY",
+    "station": "LWJ",
+    "platform_length_km": 0.28
+  },
+  "LWJ-DLY_DLY Enrty": {
+    "section": "LWJ-DLY",
+    "station": "DLY Enrty",
+    "platform_length_km": 2.894
+  },
+  "DLY-KLY": {
+    "section": "DLY-KLY",
+    "station": "DLY",
+    "platform_length_km": 0.274
+  },
+  "KLY-PDI": {
+    "section": "KLY-PDI",
+    "station": "KLY",
+    "platform_length_km": 0.28
+  },
+  "PDI-KJT": {
+    "section": "PDI-KJT",
+    "station": "PDI",
+    "platform_length_km": 0.271
+  },
+  "KJT-BVS": {
+    "section": "KJT-BVS",
+    "station": "KJT",
+    "platform_length_km": 0.262
+  },
+  "BVS-NRL": {
+    "section": "BVS-NRL",
+    "station": "BVS",
+    "platform_length_km": 0.28
+  },
+  "NRL-SHELU": {
+    "section": "NRL-SHELU",
+    "station": "NRL",
+    "platform_length_km": 0.351
+  },
+  "SHELU-VGI": {
+    "section": "SHELU-VGI",
+    "station": "SHELU",
+    "platform_length_km": 0.266
+  },
+  "VGI-BUD": {
+    "section": "VGI-BUD",
+    "station": "VGI",
+    "platform_length_km": 0.264
+  },
+  "BUD-ABH": {
+    "section": "BUD-ABH",
+    "station": "BUD",
+    "platform_length_km": 0.316
+  },
+  "ABH-ULNR": {
+    "section": "ABH-ULNR",
+    "station": "ABH",
+    "platform_length_km": 0.272
+  },
+  "ULNR-VLDI": {
+    "section": "ULNR-VLDI",
+    "station": "ULNR",
+    "platform_length_km": 0.268
+  },
+  "VLDI-KYN": {
+    "section": "VLDI-KYN",
+    "station": "VLDI",
+    "platform_length_km": 0.266
+  },
+  "VLDI-KYN_KYN": {
+    "section": "VLDI-KYN",
+    "station": "KYN",
+    "platform_length_km": 0.27
+  }
+}

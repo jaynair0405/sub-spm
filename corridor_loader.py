@@ -283,7 +283,7 @@ class CorridorManager:
 
     def load_default_corridors(self) -> None:
         for name, relative in self.DEFAULT_FILES.items():
-            path = self.data_root / relative
+            path = self.data_root / "data" / relative
             if not path.exists():
                 continue
             try:

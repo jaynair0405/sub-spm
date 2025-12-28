@@ -161,7 +161,8 @@ class PlatformEntryCalculator:
     def find_speed_at_distance(
         self,
         target_distance: float,
-        spm_data: List[Dict]
+        spm_data: List[Dict],
+        return_distance: bool = False
     ) -> Optional[float]:
         """
         Find the speed at or immediately after a target cumulative distance.
@@ -176,9 +177,14 @@ class PlatformEntryCalculator:
             approach favors the driver and accounts for platform length measurement
             errors and speedometer/GPS recording delays. If none exist (target is
             after the last sample), falls back to the closest sample overall.
+
+            When return_distance is True, returns a tuple of (speed, actual_distance)
+            so callers can understand how far the chosen sample was from the
+            requested distance. The actual_distance uses the same units as the SPM
+            data (meters or kilometers).
         """
         if not spm_data:
-            return None
+            return (None, None) if return_distance else None
 
         # Ensure samples are processed in order of cumulative distance
         sorted_samples = sorted(spm_data, key=lambda s: s.get('cumulative_distance', 0.0))
@@ -206,8 +212,13 @@ class PlatformEntryCalculator:
 
         chosen_sample = best_following_sample or closest_sample
         if chosen_sample:
-            return chosen_sample.get('speed')
+            speed_val = chosen_sample.get('speed')
+            if return_distance:
+                return speed_val, chosen_sample.get('cumulative_distance')
+            return speed_val
 
+        if return_distance:
+            return None, None
         return None
 
     def _is_meter_scale(self, distances: List[float]) -> bool:
@@ -314,6 +325,18 @@ class PlatformEntryCalculator:
         # Calculate entry speeds for each halt
         entry_speeds = {}
 
+        def to_meters(value: Optional[float]) -> Optional[float]:
+            if value is None:
+                return None
+            return value if use_meter_scale else value * 1000.0
+
+        def calculate_gap(actual_value: Optional[float], target_value: float) -> Optional[float]:
+            actual_m = to_meters(actual_value)
+            target_m = to_meters(target_value)
+            if actual_m is None or target_m is None:
+                return None
+            return abs(actual_m - target_m)
+
         for station, halt_distance in halting_stations.items():
             # Skip starting/terminal stations (halt distance ≈ 0)
             # Platform entry speed not applicable when train starts from station
@@ -367,9 +390,15 @@ class PlatformEntryCalculator:
             one_coach_distance_raw = max(halt_distance - (17.0 if use_meter_scale else 0.017), 0.0)
 
             # Find speeds at all three points
-            entry_speed = self.find_speed_at_distance(entry_distance_raw, spm_data)
-            mid_platform_speed = self.find_speed_at_distance(mid_platform_distance_raw, spm_data)
-            one_coach_speed = self.find_speed_at_distance(one_coach_distance_raw, spm_data)
+            entry_speed, entry_sample_distance = self.find_speed_at_distance(
+                entry_distance_raw, spm_data, return_distance=True
+            )
+            mid_platform_speed, mid_sample_distance = self.find_speed_at_distance(
+                mid_platform_distance_raw, spm_data, return_distance=True
+            )
+            one_coach_speed, one_sample_distance = self.find_speed_at_distance(
+                one_coach_distance_raw, spm_data, return_distance=True
+            )
 
             if entry_speed is None:
                 display_distance = entry_distance_raw / 1000.0 if use_meter_scale else entry_distance_raw
@@ -379,6 +408,10 @@ class PlatformEntryCalculator:
             halt_distance_km = halt_distance / 1000.0 if use_meter_scale else halt_distance
             entry_distance_km = entry_distance_raw / 1000.0 if use_meter_scale else entry_distance_raw
 
+            entry_gap_m = calculate_gap(entry_sample_distance, entry_distance_raw)
+            mid_gap_m = calculate_gap(mid_sample_distance, mid_platform_distance_raw)
+            one_coach_gap_m = calculate_gap(one_sample_distance, one_coach_distance_raw)
+
             entry_speeds[station] = {
                 'halt_distance': halt_distance_km,
                 'platform_length_km': platform_length,
@@ -386,7 +419,10 @@ class PlatformEntryCalculator:
                 'entry_speed': entry_speed,
                 'mid_platform_speed': mid_platform_speed,  # Speed at 126m from halt
                 'one_coach_speed': one_coach_speed,        # Speed at 17m from halt
-                'section': station_section
+                'section': station_section,
+                'entry_gap_m': entry_gap_m,
+                'mid_gap_m': mid_gap_m,
+                'one_coach_gap_m': one_coach_gap_m
             }
 
             mid_pf_str = f"{mid_platform_speed:.1f}" if mid_platform_speed is not None else "N/A"
