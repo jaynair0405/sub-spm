@@ -412,26 +412,108 @@
   color: var(--text);
 }
 
+/* Loading Overlay */
+.loading-overlay {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(255, 255, 255, 0.9);
+  z-index: 9999;
+  justify-content: center;
+  align-items: center;
+  flex-direction: column;
+  gap: 16px;
+}
+.loading-overlay.active {
+  display: flex;
+}
+.loading-spinner {
+  width: 50px;
+  height: 50px;
+  border: 4px solid var(--border);
+  border-top-color: var(--brand);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+.loading-text {
+  font-size: 1rem;
+  color: var(--brand);
+  font-weight: 500;
+}
+
+/* PDF Export Button */
+.btn-pdf {
+  background: #28a745;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 500;
+  display: none;
+  gap: 6px;
+  align-items: center;
+}
+.btn-pdf:hover {
+  background: #218838;
+}
+.btn-pdf.visible {
+  display: inline-flex;
+}
+.back-btn {
+  background: transparent;
+  border: none;
+  color: #e8e7ed;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 6px 10px;
+  margin-right: 12px;
+}
+
+.back-btn:hover {
+  text-decoration: underline;
+}
+
+
 /* Print specific adjustments */
 @media print {
   body { background: white; }
   .page-shell { padding: 0; max-width: 100%; }
   .report-print-header { margin-top: 0; }
   /* Hide the Upload/Input section when printing */
-  section.card:nth-of-type(1) { display: none !important; } 
+  section.card:nth-of-type(1) { display: none !important; }
   header { display: none !important; } /* Hide the blue app header */
+  .btn-pdf { display: none !important; }
+  .loading-overlay { display: none !important; }
 }
     </style>
   </head>
   <body>
+    <!-- Loading Overlay -->
+    <div id="loadingOverlay" class="loading-overlay">
+      <div class="loading-spinner"></div>
+      <div class="loading-text" id="loadingText">Processing SPM data...</div>
+    </div>
+
     <div class="page-shell">
       <header>
         <div>
+          
+
           <div class="badge">Central Railway • BB Divn-Suburban • SPM</div>
           <h1>Suburban Performance Monitor</h1>
           <span>Upload SPM runs, select staff, and review train performance visually.</span>
         </div>
+        
         <div class="badge">BB TRSO - Digital Workplace</div>
+        <button id="btnBack" class="back-btn">← Back to SPM Hub</button>
       </header>
 
       <main class="content">
@@ -459,12 +541,9 @@
 
           <div class="grid">
             <label>
-              Staff ID
+              Staff (Motorman)
               <select id="staffId">
-                <option value="" selected>Select staff (from DB soon)</option>
-                <option value="STF1234">STF1234 • Vinod Singh</option>
-                <option value="STF1956">STF1956 • Ravi Sharma</option>
-                <option value="STF2277">STF2277 • Anita Desai</option>
+                <option value="" selected>Loading staff list...</option>
               </select>
             </label>
             <label>
@@ -499,12 +578,10 @@
               />
             </label>
             <label>
-              Analysed By
-              <input
-                type="text"
-                id="analysedBy"
-                placeholder="Name of analyst"
-              />
+              Analysed By (CLI)
+              <select id="analysedBy">
+                <option value="" selected>Loading CLI list...</option>
+              </select>
             </label>
             <label>
               Unit Number
@@ -513,15 +590,10 @@
                 id="unitNumber"
                 placeholder="e.g., 2231"
               />
+              <small id="unitPreview" style="display:none; color:#0b3d91; font-weight:500; margin-top:4px;"></small>
             </label>
-            <label>
-              Notes
-              <input
-                type="text"
-                id="notes"
-                placeholder="Optional remarks"
-              />
-            </label>
+            <!-- Notes field hidden but kept for backend compatibility -->
+            <input type="hidden" id="notes" value="" />
           </div>
           <div class="actions">
             <button type="button" id="processBtn">Process Run</button>
@@ -531,6 +603,15 @@
               id="clearBtn"
             >
               Reset Form
+            </button>
+            <button type="button" id="pdfBtn" class="btn-pdf">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                <polyline points="14 2 14 8 20 8"></polyline>
+                <line x1="12" y1="18" x2="12" y2="12"></line>
+                <line x1="9" y1="15" x2="15" y2="15"></line>
+              </svg>
+              Export PDF
             </button>
           </div>
         </section>
@@ -604,7 +685,7 @@
       <span class="meta-value" id="metaRoute">-</span>
     </div>
     <div class="meta-item">
-      <span class="meta-label">Unit / Rake</span>
+      <span class="meta-label">Unit / Rake / Shed</span>
       <span class="meta-value" id="metaUnit">-</span>
     </div>
     <div class="meta-item">
@@ -1326,9 +1407,202 @@
           observationCell.textContent = "No brake feel test detected";
         }
       }
-      const CHART_API_BASE = "";
+      const CHART_API_BASE = "/spm/sub-spm";
+      //const CHART_API_BASE = "";
       // const CHART_API_BASE = "http://127.0.0.1:8000";
       let currentRunId = null;
+      let staffData = {}; // Store staff data for nominated CLI lookup
+
+      // Loading overlay helpers
+      function showLoading(message = "Processing SPM data...") {
+        const overlay = document.getElementById("loadingOverlay");
+        const textEl = document.getElementById("loadingText");
+        if (textEl) textEl.textContent = message;
+        if (overlay) overlay.classList.add("active");
+      }
+
+      function hideLoading() {
+        const overlay = document.getElementById("loadingOverlay");
+        if (overlay) overlay.classList.remove("active");
+      }
+
+      // PDF Export function
+      function exportPDF() {
+        // Show PDF header before printing
+        document.getElementById("pdfHeader").style.display = "flex";
+        // Trigger browser print dialog (user can save as PDF)
+        window.print();
+      }
+
+      // Show/hide PDF button
+      function showPdfButton() {
+        const btn = document.getElementById("pdfBtn");
+        if (btn) btn.classList.add("visible");
+      }
+
+      function hidePdfButton() {
+        const btn = document.getElementById("pdfBtn");
+        if (btn) btn.classList.remove("visible");
+      }
+
+      // Sheds data cache
+      let shedsData = null;
+
+      // Load sheds data
+      async function loadShedsData() {
+        try {
+          const response = await fetch(`${CHART_API_BASE}/reference_data/sheds.json`);
+          if (response.ok) {
+            shedsData = await response.json();
+          }
+        } catch (err) {
+          console.error("Error loading sheds data:", err);
+        }
+      }
+
+      // Get rake type from unit number
+      function getRakeType(unitNumber) {
+        const num = parseInt(unitNumber, 10);
+        if (isNaN(num)) return null;
+
+        if (num >= 240000 && num <= 249999) return "Alstom";
+        if (num >= 8000 && num <= 8099) return "Medha U/S";
+        if ((num >= 1000 && num <= 2999) ||
+            (num >= 10000 && num <= 23999) ||
+            (num >= 25000 && num <= 29999)) return "Siemens";
+        if (num >= 4000 && num <= 4999) return "AC Retro";
+        if (num >= 5000 && num <= 5999) return "Bombardier";
+        if (num >= 6000 && num <= 6999) return "Medha";
+        if (num >= 7000 && num <= 7999) return "AC BHEL";
+        return null;
+      }
+
+      // Get shed from unit number by searching sheds data
+      function getShedFromUnit(unitNumber) {
+        if (!shedsData || !unitNumber) return null;
+        const unitStr = unitNumber.toString().trim();
+
+        for (const [shedName, rakeTypes] of Object.entries(shedsData)) {
+          for (const [rakeType, rakes] of Object.entries(rakeTypes)) {
+            for (const rake of rakes) {
+              const coaches = rake.split('-');
+              if (coaches.includes(unitStr)) {
+                return shedName;
+              }
+            }
+          }
+        }
+        return null;
+      }
+
+      // Get combined Unit/Rake/Shed string
+      function getUnitRakeShedString(unitNumber) {
+        if (!unitNumber) return "-";
+        const rakeType = getRakeType(unitNumber) || "Unknown";
+        const shed = getShedFromUnit(unitNumber) || "Unknown";
+        return `${unitNumber}/${rakeType}/${shed}`;
+      }
+
+      // Get train service type (Slow/Fast) from train number
+      function getTrainService(trainNumber) {
+        if (!trainNumber) return "Unknown";
+        const numStr = trainNumber.toString().trim();
+
+        // 95xxx = Fast, everything else = Slow
+        if (numStr.startsWith("95")) {
+          return "Fast";
+        }
+        // 96xxx, 97xxx = Slow (Main line locals)
+        // 98xxx = Harbour (all local/slow)
+        // 99xxx = THB Trans-Harbour (all local/slow)
+        return "Slow";
+      }
+
+      // Handle unit number input change
+      function onUnitNumberChange() {
+        const unitNumber = document.getElementById("unitNumber").value.trim();
+        const rakeType = getRakeType(unitNumber);
+        const shed = getShedFromUnit(unitNumber);
+
+        // Update preview if needed (optional - can show in a helper text)
+        const previewEl = document.getElementById("unitPreview");
+        if (previewEl) {
+          if (unitNumber && (rakeType || shed)) {
+            previewEl.textContent = `${rakeType || '?'} / ${shed || '?'}`;
+            previewEl.style.display = "block";
+          } else {
+            previewEl.style.display = "none";
+          }
+        }
+      }
+
+      // Load staff list from API
+      async function loadStaffList() {
+        try {
+          const response = await fetch(`${CHART_API_BASE}/api/staff`);
+          if (!response.ok) throw new Error("Failed to load staff list");
+          const data = await response.json();
+
+          const select = document.getElementById("staffId");
+          select.innerHTML = '<option value="">-- Select Motorman --</option>';
+
+          data.staff.forEach(staff => {
+            const option = document.createElement("option");
+            option.value = staff.hrms_id;
+            option.textContent = `${staff.staff_name} - ${staff.cms_id}`;
+            option.dataset.cmsId = staff.cms_id || "";
+            option.dataset.nominatedCliId = staff.nominated_cli_id || "";
+            select.appendChild(option);
+            // Store for later lookup
+            staffData[staff.hrms_id] = staff;
+          });
+        } catch (err) {
+          console.error("Error loading staff:", err);
+          document.getElementById("staffId").innerHTML = '<option value="">Error loading staff</option>';
+        }
+      }
+
+      // Load CLI list from API
+      async function loadCliList() {
+        try {
+          const response = await fetch(`${CHART_API_BASE}/api/cli`);
+          if (!response.ok) throw new Error("Failed to load CLI list");
+          const data = await response.json();
+
+          const select = document.getElementById("analysedBy");
+          select.innerHTML = '<option value="">-- Select CLI --</option>';
+
+          data.cli.forEach(cli => {
+            const option = document.createElement("option");
+            option.value = cli.cms_id || cli.cli_id;
+            option.textContent = cli.cli_name;
+            option.dataset.cliId = cli.cli_id;
+            select.appendChild(option);
+          });
+        } catch (err) {
+          console.error("Error loading CLI:", err);
+          document.getElementById("analysedBy").innerHTML = '<option value="">Error loading CLI</option>';
+        }
+      }
+
+      // Handle staff selection - auto-populate nominated CLI in metadata
+      function onStaffSelect() {
+        const hrmsId = document.getElementById("staffId").value;
+        if (hrmsId && staffData[hrmsId]) {
+          const staff = staffData[hrmsId];
+          // Store nominated CLI info for later use in metadata display
+          window.selectedStaffNominatedCliId = staff.nominated_cli_id;
+        }
+      }
+
+      // Initialize dropdowns on page load
+      document.addEventListener("DOMContentLoaded", () => {
+        loadStaffList();
+        loadCliList();
+        loadShedsData();
+        document.getElementById("staffId").addEventListener("change", onStaffSelect);
+        document.getElementById("unitNumber").addEventListener("input", onUnitNumberChange);
+      });
 
       async function uploadFile() {
         const file = fileInput.files[0];
@@ -1731,6 +2005,8 @@
       processBtn.addEventListener("click", async () => {
         processBtn.disabled = true;
         processBtn.textContent = "Processing...";
+        showLoading("Uploading and analyzing SPM data...");
+        hidePdfButton();
 
         try {
           // Upload file first
@@ -1765,7 +2041,8 @@
     const staffText = document.getElementById("staffId").options[document.getElementById("staffId").selectedIndex].text;
     const fromStn = document.getElementById("fromStation").value || "?";
     const toStn = document.getElementById("toStation").value || "?";
-    const analyst = document.getElementById("analysedBy").value || "Admin";
+    const analystSelect = document.getElementById("analysedBy");
+    const analyst = analystSelect.selectedIndex > 0 ? analystSelect.options[analystSelect.selectedIndex].text : "Admin";
     const unitNo = document.getElementById("unitNumber").value || "-";
     
     // --- 3. Format Date of Working ---
@@ -1782,22 +2059,39 @@
     document.getElementById("metaDate").textContent = workingDate;
     document.getElementById("metaStaff").textContent = staffText;
     document.getElementById("metaRoute").textContent = `${fromStn} ➝ ${toStn}`;
-    document.getElementById("metaUnit").textContent = unitNo;
+    document.getElementById("metaUnit").textContent = getUnitRakeShedString(unitNo);
     document.getElementById("metaAnalyst").textContent = analyst;
 
     // CLUBBING TRAIN NUMBER & TYPE
-    // Assuming backend sends 'train_type' (e.g., 'Slow', 'Fast'). 
-    // If not, default to empty string or 'Suburban'
-    const typeFromDB = uploadResult.train_type || "Suburban"; 
-    document.getElementById("metaTrainInfo").textContent = `${trainNo} / ${typeFromDB}`;
+    // Derive train service (Slow/Fast) from train number prefix
+    const trainService = getTrainService(trainNo);
+    document.getElementById("metaTrainInfo").textContent = `${trainNo} / ${trainService}`;
 
-    // NOMINATED CLI FROM DB
-    // Assuming backend sends 'nominated_cli'. 
-    // You mentioned this is fetched from DB.
-    document.getElementById("metaCli").textContent = uploadResult.nominated_cli || "Not Assigned";
+    // NOMINATED CLI - Auto-detect from selected staff's nominated_cli_id
+    const selectedStaffHrms = document.getElementById("staffId").value;
+    let nominatedCliName = "Not Assigned";
+    if (selectedStaffHrms && staffData[selectedStaffHrms]) {
+      const staff = staffData[selectedStaffHrms];
+      if (staff.nominated_cli_id) {
+        // Look up CLI name from select options
+        const cliSelect = document.getElementById("analysedBy");
+        for (let opt of cliSelect.options) {
+          if (opt.dataset.cliId == staff.nominated_cli_id) {
+            nominatedCliName = opt.textContent;
+            break;
+          }
+        }
+      }
+    }
+    document.getElementById("metaCli").textContent = nominatedCliName;
 
-    // METRICS FROM SUMMARY
-    document.getElementById("metaDistance").textContent = (summary.total_distance || 0).toFixed(2) + " km";
+    // METRICS FROM SUMMARY - Fix: divide by 1000 if value is in meters
+    let totalDistKm = summary.total_distance || 0;
+    if (totalDistKm > 200) {
+      // Likely in meters, convert to km
+      totalDistKm = totalDistKm / 1000;
+    }
+    document.getElementById("metaDistance").textContent = totalDistKm.toFixed(2) + " km";
     document.getElementById("metaMaxSpeed").textContent = (summary.max_speed || 0) + " km/h";
     
     // TIMESTAMPS
@@ -1829,16 +2123,24 @@
             alert(message);
 
             // Load chart data for this run
+            showLoading("Loading charts...");
             await loadChartData(currentRunId);
+
+            // Show PDF export button after successful processing
+            showPdfButton();
           }
         } catch (err) {
           console.error(err);
           alert("Processing failed: " + err.message);
         } finally {
+          hideLoading();
           processBtn.disabled = false;
           processBtn.textContent = "Process Run";
         }
       });
+
+      // PDF Export button click handler
+      document.getElementById("pdfBtn").addEventListener("click", exportPDF);
 
       clearBtn.addEventListener("click", () => {
         fileInput.value = "";
@@ -1848,6 +2150,23 @@
         document.getElementById("toStation").selectedIndex = 0;
         document.getElementById("trainNumber").value = "";
         document.getElementById("notes").value = "";
+        document.getElementById("unitNumber").value = "";
+        document.getElementById("dateOfWorking").value = "";
+        document.getElementById("analysedBy").selectedIndex = 0;
+        // Hide report sections
+        document.getElementById("pdfHeader").style.display = "none";
+        document.getElementById("reportMetadata").style.display = "none";
+        hidePdfButton();
+        // Clear charts
+        disposeSegmentCharts();
+        disposePlatformEntryCharts();
+        disposeBrakeFeelChart();
+        if (chart) {
+          chart.clear();
+        }
+        // Clear railway line SVG
+        const svg = document.getElementById('railwayLine');
+        if (svg) svg.innerHTML = '';
       });
 
       // Make chart responsive
@@ -1861,6 +2180,15 @@
         segmentCharts.forEach((segChart) => segChart.resize());
         platformEntryCharts.forEach((peChart) => peChart.resize());
       });
+
+document.getElementById("btnBack")?.addEventListener("click", () => {
+  if (document.referrer) return (window.location.href = document.referrer);
+  window.location.href = "/div/spm-hub.html";
+});
+
+
+
+
     </script>
   </body>
 </html>

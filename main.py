@@ -6,7 +6,8 @@ from typing import Optional, List, Dict, Any
 import polars as pl
 import pandas as pd
 import tempfile
-from datetime import datetime
+import os
+from datetime import datetime, timedelta
 from spm_db import insert_run, insert_station_windows, insert_window_points
 from corridor_loader import CorridorManager
 from psr_mps import PSRMPSCalculator, detect_violations
@@ -14,9 +15,14 @@ from halt_detection import HaltDetector, calculate_cumulative_distance
 from platform_entry_speed import PlatformEntryCalculator
 from brakefeel_detector import BrakeFeelDetector
 from station_km_maps import get_station_km_map_for_train_type
-from spm_db import get_run, get_points, list_runs
+from spm_db import get_run, get_points, list_runs, get_staff_list, get_cli_list, get_staff_by_hrms
 
-app = FastAPI(title="SPM Analysis API")
+# app = FastAPI(title="SPM Analysis API")
+ROOT_PATH = os.getenv("ROOT_PATH", "")
+app = FastAPI(
+    title="SPM Analysis API",
+    root_path=ROOT_PATH
+)
 
 # Enable CORS for local development
 app.add_middleware(
@@ -75,6 +81,15 @@ async def serve_spm_html():
     return FileResponse(html_path)
 
 
+@app.get("/reference_data/{filename}")
+async def serve_reference_data(filename: str):
+    """Serve reference data JSON files (sheds.json, etc.)"""
+    file_path = DATA_ROOT / "reference_data" / filename
+    if not file_path.exists():
+        raise HTTPException(status_code=404, detail=f"{filename} not found")
+    return FileResponse(file_path, media_type="application/json")
+
+
 @app.get("/corridors")
 async def list_corridors():
     """List all available corridors"""
@@ -88,6 +103,57 @@ async def list_corridors():
             for name, data in corridor_manager.corridors.items()
         ]
     }
+
+
+@app.get("/api/db-test")
+async def api_db_test():
+    """Test database connection"""
+    from db_config import test_connection
+    try:
+        success = test_connection()
+        return {"connected": success}
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return {"connected": False, "error": str(e)}
+
+
+@app.get("/api/staff")
+async def api_get_staff():
+    """Get list of motormen (designation_id=8) for dropdown"""
+    try:
+        staff = get_staff_list(designation_id=8)
+        return {"staff": staff}
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/cli")
+async def api_get_cli():
+    """Get list of CLI for dropdown"""
+    try:
+        cli = get_cli_list()
+        return {"cli": cli}
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/staff/{hrms_id}")
+async def api_get_staff_details(hrms_id: str):
+    """Get staff details including nominated CLI by HRMS ID"""
+    try:
+        staff = get_staff_by_hrms(hrms_id)
+        if not staff:
+            raise HTTPException(status_code=404, detail="Staff not found")
+        return staff
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.post("/upload")
@@ -634,6 +700,44 @@ async def upload_spm_file(
         insert_station_windows(station_window_rows)
         insert_window_points(window_point_rows)
 
+        # Extract departure/arrival times from first/last row
+        start_time = None
+        end_time = None
+        duration = None
+        if "Time" in df.columns and len(df) > 0:
+            first_time = df["Time"][0]
+            last_time = df["Time"][-1]
+            if first_time:
+                start_time = str(first_time)
+            if last_time:
+                end_time = str(last_time)
+
+            # Calculate duration with midnight crossing handling
+            if start_time and end_time:
+                try:
+                    from datetime import datetime as dt, timedelta as td
+                    fmt = "%H:%M:%S"
+                    # Try parsing with seconds
+                    try:
+                        t1 = dt.strptime(start_time, fmt)
+                        t2 = dt.strptime(end_time, fmt)
+                    except ValueError:
+                        # Try without seconds
+                        fmt = "%H:%M"
+                        t1 = dt.strptime(start_time[:5], fmt)
+                        t2 = dt.strptime(end_time[:5], fmt)
+
+                    diff = t2 - t1
+                    # Handle midnight crossing
+                    if diff.total_seconds() < 0:
+                        diff = diff + td(days=1)
+                    total_secs = int(diff.total_seconds())
+                    hours = total_secs // 3600
+                    mins = (total_secs % 3600) // 60
+                    secs = total_secs % 60
+                    duration = f"{hours:02d}:{mins:02d}:{secs:02d}"
+                except Exception as e:
+                    print(f"[DEBUG] Could not calculate duration: {e}")
 
         return {
             "success": True,
@@ -655,7 +759,10 @@ async def upload_spm_file(
                 "avg_speed": float(df["Speed"].mean()),
                 "total_distance": float(df["Distance"].sum()),
                 "psr_calculated": len(psr_values) > 0,
-            }
+            },
+            "start_time": start_time,
+            "end_time": end_time,
+            "duration": duration,
         }
 
     except Exception as e:

@@ -177,3 +177,95 @@ def list_runs(limit: int = 50):
         return rows
     finally:
         cn.close()
+
+
+def get_staff_list(designation_id: int = 8) -> List[Dict[str, Any]]:
+    """
+    Get list of staff (motormen) from div_staff_master.
+    Default designation_id=8 for Motormen.
+    """
+    cn = get_db_connection()
+    try:
+        cur = cn.cursor(dictionary=True)
+        cur.execute(
+            """
+            SELECT hrms_id, current_cms_id as cms_id, name as staff_name, current_cli_id as nominated_cli_id
+            FROM div_staff_master
+            WHERE designation_id = %s
+            ORDER BY name
+            """,
+            (designation_id,),
+        )
+        rows = cur.fetchall()
+        cur.close()
+        return rows
+    finally:
+        cn.close()
+
+
+def get_cli_list() -> List[Dict[str, Any]]:
+    """
+    Get list of CLI from div_cli_master.
+    """
+    cn = get_db_connection()
+    try:
+        cur = cn.cursor(dictionary=True)
+        cur.execute(
+            """
+            SELECT cli_id, cmsid as cms_id, cli_name
+            FROM div_cli_master
+            WHERE is_active = 1
+            ORDER BY cli_name
+            """
+        )
+        rows = cur.fetchall()
+        cur.close()
+        return rows
+    finally:
+        cn.close()
+
+
+def get_cli_by_id(cli_id: int) -> Optional[Dict[str, Any]]:
+    """
+    Get CLI details by cli_id.
+    """
+    cn = get_db_connection()
+    try:
+        cur = cn.cursor(dictionary=True)
+        cur.execute(
+            """
+            SELECT cli_id, cmsid as cms_id, cli_name
+            FROM div_cli_master
+            WHERE cli_id = %s
+            """,
+            (cli_id,),
+        )
+        row = cur.fetchone()
+        cur.close()
+        return row
+    finally:
+        cn.close()
+
+
+def get_staff_by_hrms(hrms_id: str) -> Optional[Dict[str, Any]]:
+    """
+    Get staff details by HRMS ID, including nominated CLI info.
+    """
+    cn = get_db_connection()
+    try:
+        cur = cn.cursor(dictionary=True)
+        cur.execute(
+            """
+            SELECT s.hrms_id, s.current_cms_id as cms_id, s.name as staff_name,
+                   s.current_cli_id as nominated_cli_id, c.cli_name as nominated_cli_name, c.cmsid as cli_cms_id
+            FROM div_staff_master s
+            LEFT JOIN div_cli_master c ON s.current_cli_id = c.cli_id
+            WHERE s.hrms_id = %s
+            """,
+            (hrms_id,),
+        )
+        row = cur.fetchone()
+        cur.close()
+        return row
+    finally:
+        cn.close()
