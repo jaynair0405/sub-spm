@@ -447,3 +447,198 @@ def get_severity_color(severity: str) -> str:
         'critical': '#8B0000'    # Dark Red
     }
     return colors.get(severity, '#FF0000')
+
+
+def detect_overspeed_events(
+    spm_data: List[Dict],
+    psr_values: List[int],
+    threshold_offset: int = 3,
+    min_duration: int = 7
+) -> List[Dict]:
+    """
+    Detect overspeed events by grouping consecutive violations.
+
+    Ported from GAS overspeed.js - detectOverspeedingEvents()
+
+    Key features:
+    - Groups consecutive overspeed samples into single events
+    - Uses threshold = PSR/MPS + offset (default 3 km/h tolerance)
+    - Requires minimum consecutive samples to count as event
+    - Handles momentary drops (brief compliance within 3 samples)
+
+    Args:
+        spm_data: SPM data with 'speed', 'cumulative_distance', 'Time' fields
+        psr_values: Calculated PSR/MPS values for each data point
+        threshold_offset: Tolerance above PSR/MPS (default 3 km/h)
+        min_duration: Minimum consecutive samples for an event (default 7)
+
+    Returns:
+        List of overspeed event dictionaries with:
+        - event_number: Sequential event number
+        - start_time, end_time: Time range of violation
+        - start_km, end_km: Distance range of violation
+        - duration: Number of samples in event
+        - max_speed: Peak speed reached
+        - max_excess: Maximum amount over limit
+        - psr_value: The speed limit that was exceeded
+        - threshold: Actual threshold used (PSR + offset)
+        - severity: minor/moderate/severe/critical
+    """
+    if not spm_data or not psr_values:
+        return []
+
+    overspeed_events = []
+    current_event = None
+
+    def create_new_event(row, psr, threshold, index):
+        """Start tracking a new overspeed event."""
+        return {
+            'start_index': index,
+            'start_time': row.get('Time', ''),
+            'start_km': row.get('cumulative_distance', 0),
+            'overspeed_values': [row.get('speed', 0)],
+            'psr_value': psr,
+            'threshold': threshold,
+            'times': [row.get('Time', '')],
+            'kms': [row.get('cumulative_distance', 0)]
+        }
+
+    def extend_event(event, row):
+        """Add a sample to the current event."""
+        event['overspeed_values'].append(row.get('speed', 0))
+        event['times'].append(row.get('Time', ''))
+        event['kms'].append(row.get('cumulative_distance', 0))
+
+    def check_for_momentary_drop(data, psr_values, current_index, threshold_offset):
+        """Check if overspeed resumes within next 3 samples."""
+        check_rows = min(3, len(data) - current_index - 1)
+        for j in range(1, check_rows + 1):
+            next_psr = psr_values[current_index + j] if current_index + j < len(psr_values) else None
+            if next_psr is None:
+                continue
+            next_threshold = next_psr + threshold_offset
+            next_speed = data[current_index + j].get('speed', 0)
+            if next_speed > next_threshold:
+                return True
+        return False
+
+    def finalize_event(event, end_row, event_number):
+        """Calculate final stats for a completed event."""
+        max_speed = max(event['overspeed_values'])
+        excess_speeds = [s - event['psr_value'] for s in event['overspeed_values']]
+        max_excess = max(excess_speeds)
+
+        # Determine severity based on max excess
+        if max_excess < 5:
+            severity = 'minor'
+        elif max_excess < 10:
+            severity = 'moderate'
+        elif max_excess < 20:
+            severity = 'severe'
+        else:
+            severity = 'critical'
+
+        # Convert km if in meters
+        start_km = event['start_km']
+        end_km = end_row.get('cumulative_distance', 0)
+        if start_km > 200:  # Assume meters
+            start_km = start_km / 1000
+            end_km = end_km / 1000
+
+        return {
+            'event_number': event_number,
+            'start_time': event['start_time'],
+            'end_time': end_row.get('Time', ''),
+            'start_km': round(start_km, 2),
+            'end_km': round(end_km, 2),
+            'duration': len(event['overspeed_values']),
+            'max_speed': round(max_speed, 1),
+            'max_excess': round(max_excess, 1),
+            'psr_value': event['psr_value'],
+            'threshold': event['threshold'],
+            'severity': severity,
+            'start_index': event['start_index'],
+            'end_index': event['start_index'] + len(event['overspeed_values']) - 1
+        }
+
+    # Main detection loop
+    i = 0
+    while i < len(spm_data):
+        row = spm_data[i]
+        speed = row.get('speed', 0)
+        psr = psr_values[i] if i < len(psr_values) else None
+
+        if psr is None:
+            i += 1
+            continue
+
+        threshold = psr + threshold_offset
+
+        if speed > threshold:
+            if current_event is None:
+                # Start new event
+                current_event = create_new_event(row, psr, threshold, i)
+            else:
+                # Extend current event
+                extend_event(current_event, row)
+        else:
+            # Speed is within limits
+            if current_event is not None:
+                # Check if event meets minimum duration
+                if len(current_event['overspeed_values']) >= min_duration:
+                    # Check for momentary drop
+                    if not check_for_momentary_drop(spm_data, psr_values, i, threshold_offset):
+                        # Finalize event
+                        event = finalize_event(current_event, row, len(overspeed_events) + 1)
+                        overspeed_events.append(event)
+                    else:
+                        # Extend through momentary drop
+                        for j in range(1, 4):
+                            if i + j < len(spm_data):
+                                extend_event(current_event, spm_data[i + j])
+                        i += 2  # Skip checked rows
+                # Reset current event
+                current_event = None
+        i += 1
+
+    # Handle event at end of data
+    if current_event is not None and len(current_event['overspeed_values']) >= min_duration:
+        event = finalize_event(current_event, spm_data[-1], len(overspeed_events) + 1)
+        overspeed_events.append(event)
+
+    print(f"[DEBUG OVERSPEED] Detected {len(overspeed_events)} overspeed events (threshold: PSR+{threshold_offset}, min samples: {min_duration})")
+
+    return overspeed_events
+
+
+def get_overspeed_summary(events: List[Dict]) -> Dict:
+    """
+    Generate summary statistics for overspeed events.
+
+    Args:
+        events: List of overspeed event dictionaries
+
+    Returns:
+        Summary dictionary with counts and stats
+    """
+    if not events:
+        return {
+            'total_events': 0,
+            'by_severity': {'minor': 0, 'moderate': 0, 'severe': 0, 'critical': 0},
+            'max_excess_overall': 0,
+            'max_speed_overall': 0,
+            'total_duration': 0
+        }
+
+    severity_counts = {'minor': 0, 'moderate': 0, 'severe': 0, 'critical': 0}
+    for event in events:
+        severity = event.get('severity', 'minor')
+        severity_counts[severity] = severity_counts.get(severity, 0) + 1
+
+    return {
+        'total_events': len(events),
+        'by_severity': severity_counts,
+        'max_excess_overall': max(e['max_excess'] for e in events),
+        'max_speed_overall': max(e['max_speed'] for e in events),
+        'total_duration': sum(e['duration'] for e in events)
+    }

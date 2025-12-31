@@ -247,6 +247,28 @@ def get_cli_by_id(cli_id: int) -> Optional[Dict[str, Any]]:
         cn.close()
 
 
+def get_cli_by_cms_id(cms_id: str) -> Optional[Dict[str, Any]]:
+    """
+    Get CLI details by CMS ID (e.g., CSTM0103).
+    """
+    cn = get_db_connection()
+    try:
+        cur = cn.cursor(dictionary=True)
+        cur.execute(
+            """
+            SELECT cli_id, cmsid as cms_id, cli_name
+            FROM div_cli_master
+            WHERE cmsid = %s
+            """,
+            (cms_id,),
+        )
+        row = cur.fetchone()
+        cur.close()
+        return row
+    finally:
+        cn.close()
+
+
 def get_staff_by_hrms(hrms_id: str) -> Optional[Dict[str, Any]]:
     """
     Get staff details by HRMS ID, including nominated CLI info.

@@ -10,12 +10,12 @@ import os
 from datetime import datetime, timedelta
 from spm_db import insert_run, insert_station_windows, insert_window_points
 from corridor_loader import CorridorManager
-from psr_mps import PSRMPSCalculator, detect_violations
+from psr_mps import PSRMPSCalculator, detect_violations, detect_overspeed_events, get_overspeed_summary
 from halt_detection import HaltDetector, calculate_cumulative_distance
 from platform_entry_speed import PlatformEntryCalculator
 from brakefeel_detector import BrakeFeelDetector
 from station_km_maps import get_station_km_map_for_train_type
-from spm_db import get_run, get_points, list_runs, get_staff_list, get_cli_list, get_staff_by_hrms
+from spm_db import get_run, get_points, list_runs, get_staff_list, get_cli_list, get_staff_by_hrms, get_cli_by_cms_id
 
 # app = FastAPI(title="SPM Analysis API")
 ROOT_PATH = os.getenv("ROOT_PATH", "")
@@ -49,14 +49,95 @@ brakefeel_detector = BrakeFeelDetector()
 runs_storage: Dict[str, Dict[str, Any]] = {}
 
 
+def extract_hq_from_cms_id(cms_id: str) -> str:
+    """
+    Extract HQ (home station) from CMS ID prefix.
+    Examples: CSTS1234 → CSMT, KYNS1234 → KYN, PNVS1234 → PNVL
+    """
+    if not cms_id:
+        return ""
+    prefix = cms_id[:4].upper()
+    hq_map = {
+        "CSTS": "CSMT",
+        "CSMT": "CSMT",
+        "KYNS": "KYN",
+        "PNVS": "PNVL",
+        "PNVL": "PNVL",
+        "THNS": "THANE",
+        "THAN": "THANE",
+        "KLVS": "KLVA",
+        "TNAS": "TNA",
+    }
+    # Try 4-char prefix first, then 3-char
+    return hq_map.get(prefix, hq_map.get(prefix[:3], prefix[:3]))
+
+
+def generate_abnormality_text(
+    overspeed_events: List[Dict],
+    platform_entry_data: Dict[str, Dict],
+    brake_tests: List[Dict]
+) -> str:
+    """
+    Generate abnormality text from analysis results.
+    Format matches the manual daily SPM analysis CSV.
+    """
+    remarks = []
+
+    # 1. PSR/MPS Violations (overspeed events)
+    for event in overspeed_events:
+        # Format: "PSR 85 VIOLATION MOMENTARY BETWEEN DI-TNA 91 KMPH FOR 7 SEC"
+        psr = event.get('psr_value', 0)
+        max_speed = event.get('max_speed', 0)
+        duration = event.get('duration', 0)
+        start_km = event.get('start_km', 0)
+        end_km = event.get('end_km', 0)
+        remarks.append(
+            f"PSR {psr} VIOLATION MOMENTARY AT {start_km}-{end_km} KM, {max_speed} KMPH FOR {duration} SEC"
+        )
+
+    # 2. Platform Entry Speed > 40 kmph
+    pf_entry_violations = []
+    for station, data in platform_entry_data.items():
+        entry_speed = data.get('entry_speed')
+        if entry_speed and entry_speed > 40:
+            pf_entry_violations.append(f"{station}-{int(entry_speed)}")
+    if pf_entry_violations:
+        remarks.append(f"PF ENTRY SPEED MORE THAN 40 KMPH AT {','.join(pf_entry_violations)}")
+
+    # 3. One Coach Before Speed > 10 kmph
+    one_coach_violations = []
+    for station, data in platform_entry_data.items():
+        one_coach = data.get('one_coach_speed')
+        if one_coach and one_coach > 10:
+            one_coach_violations.append(station)
+    if one_coach_violations:
+        if len(one_coach_violations) > 5:
+            remarks.append("ONE COACH BEFORE SPEED MORE THAN 10 KMPH AT MANY STN")
+        else:
+            remarks.append(f"ONE COACH BEFORE SPEED MORE THAN 10 KMPH AT {','.join(one_coach_violations)}")
+
+    # 4. Brake Feel Test
+    if not brake_tests:
+        remarks.append("NO BRAKE FEEL TEST DONE")
+
+    # If no issues found
+    if not remarks:
+        return "NO ABNORMALITY"
+
+    return "\n".join(remarks)
+
+
 @app.on_event("startup")
 async def startup_event():
     """Load corridor data on startup"""
     corridor_manager.load_default_corridors()
     corridor_manager.load_train_lookup()
-    corridor_manager.load_fast_halts()
+    corridor_manager.load_fast_halts("Fast Locals.csv")
+    corridor_manager.load_train_corridor_map()
     print(f"✓ Loaded {len(corridor_manager.corridors)} corridors")
     print(f"✓ Loaded {len(corridor_manager.train_code_map)} train codes")
+    print(f"✓ Loaded {len(corridor_manager.fast_halt_map)} fast train halt patterns")
+    print(f"✓ Loaded {len(corridor_manager.train_corridor_map)} train corridor entries")
     from db_config import get_db_connection
     cn = get_db_connection()
     cn.close()
@@ -156,6 +237,29 @@ async def api_get_staff_details(hrms_id: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.get("/api/train_lookup/{train_number}")
+async def api_train_lookup(train_number: str):
+    """Lookup train info (From/To stations) by train number or code."""
+    try:
+        result = corridor_manager.lookup_train(train_number)
+        if not result:
+            return {"found": False, "train_number": train_number}
+        return {
+            "found": True,
+            "train_number": train_number,
+            "train": result.get("train"),
+            "train_code": result.get("train_code"),
+            "from_station": result.get("from_station"),
+            "to_station": result.get("to_station"),
+            "direction": result.get("direction"),
+            "route": result.get("route"),
+            "type": result.get("type"),  # 0=Single, 1=Slow, 2=Fast
+            "type_name": ["Single", "Slow", "Fast"][result.get("type", 0)]
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.post("/upload")
 async def upload_spm_file(
     file: UploadFile = File(...),
@@ -182,6 +286,28 @@ async def upload_spm_file(
         tmp_path = Path(tmp.name)
 
     try:
+        # Lookup staff details for motorman name and HQ
+        motorman_name = ""
+        motorman_cms_id = ""
+        motorman_hq = ""
+        nominated_cli_name = ""
+        nominated_cli_cms_id = ""
+        if staff_id:
+            staff_details = get_staff_by_hrms(staff_id)
+            if staff_details:
+                motorman_name = staff_details.get("staff_name", "")
+                motorman_cms_id = staff_details.get("cms_id", "")
+                motorman_hq = extract_hq_from_cms_id(motorman_cms_id)
+                nominated_cli_name = staff_details.get("nominated_cli_name", "")
+                nominated_cli_cms_id = staff_details.get("cli_cms_id", "")
+
+        # Lookup CLI name for analysed_by (Done By CLI)
+        analysed_by_name = ""
+        if analysed_by:
+            cli_details = get_cli_by_cms_id(analysed_by)
+            if cli_details:
+                analysed_by_name = cli_details.get("cli_name", "")
+
         # Read file using Pandas (more reliable for Excel) then convert to Polars
         if tmp_path.suffix == '.csv':
             # Try with headers first
@@ -326,6 +452,8 @@ async def upload_spm_file(
         halting_station_map = {}
         psr_values = []
         violations = []
+        overspeed_events = []
+        overspeed_summary = {'total_events': 0, 'by_severity': {'minor': 0, 'moderate': 0, 'severe': 0, 'critical': 0}, 'max_excess_overall': 0, 'max_speed_overall': 0, 'total_duration': 0}
         platform_entry_data: Dict[str, Dict[str, Any]] = {}
         entry_calculator: Optional[PlatformEntryCalculator] = None
 
@@ -410,14 +538,24 @@ async def upload_spm_file(
                     print(f"[DEBUG] Detected {len(halts)} raw halts at: {halt_distances[:10]}")
 
                     # Step 2: Match halts using ISD pattern matching
+                    # For FAST trains, get nominated halts from Fast Locals.csv
+                    fast_train_halts = None
+                    if train_type == 'fast':
+                        fast_train_halts = corridor_manager.get_train_halts(train_number)
+                        if fast_train_halts:
+                            print(f"[DEBUG] FAST train detected - using nominated halts: {fast_train_halts}")
+                        else:
+                            print(f"[DEBUG] FAST train {train_number} not found in Fast Locals.csv, using corridor stations")
+
                     print(f"[DEBUG] Matching halts to stations using ISD algorithm...")
                     halt_result = halt_detector.match_halts_using_isd(
                         halts,
                         corridor_data,
                         from_station=from_station,
                         to_station=to_station,
-                        max_isd_diff=175.0,  # 175m ISD tolerance (balances junction stations & skip detection)
-                        max_cd_diff=300.0    # 300m cumulative distance tolerance
+                        max_isd_diff=120.0,  # 150m ISD tolerance
+                        max_cd_diff=300.0,   # 300m cumulative distance tolerance
+                        fast_train_halts=fast_train_halts
                     )
 
                     # Extract halting stations and ordered stations from result
@@ -534,9 +672,14 @@ async def upload_spm_file(
                             pl.Series('PSR', psr_values)
                         ])
 
-                        # Detect violations
+                        # Detect violations (individual points)
                         violations = detect_violations(spm_data_dicts, psr_values)
-                        print(f"[DEBUG] Found {len(violations)} violations")
+                        print(f"[DEBUG] Found {len(violations)} individual violations")
+
+                        # Detect overspeed events (grouped, with threshold=PSR+3)
+                        overspeed_events = detect_overspeed_events(spm_data_dicts, psr_values, threshold_offset=3, min_duration=7)
+                        overspeed_summary = get_overspeed_summary(overspeed_events)
+                        print(f"[DEBUG] Found {len(overspeed_events)} overspeed events")
 
                     except Exception as psr_error:
                         print(f"[ERROR] Could not calculate PSR/MPS: {psr_error}")
@@ -569,6 +712,31 @@ async def upload_spm_file(
                 traceback.print_exc()
                 platform_entry_data = {}
 
+        # Detect brake feel tests
+        brake_tests = []
+        if spm_rows:
+            samples_for_brake = [
+                {"speed": float(row.get("Speed") or 0), "timestamp": row.get("Time", "")}
+                for row in spm_rows
+            ]
+            brake_tests = [
+                {
+                    "start_index": test.start_index,
+                    "max_speed": test.max_speed,
+                    "lowest_speed": test.lowest_speed,
+                    "speed_drop": test.speed_drop,
+                }
+                for test in brakefeel_detector.detect_from_samples(samples_for_brake)
+            ][:1]  # Only first test
+
+        # Generate abnormality text for daily summary
+        abnormality_text = generate_abnormality_text(
+            overspeed_events,
+            platform_entry_data,
+            brake_tests
+        )
+        print(f"[DEBUG] Abnormality: {abnormality_text[:100]}...")
+
         # Generate run ID
         run_id = f"RUN_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
 
@@ -577,11 +745,15 @@ async def upload_spm_file(
             "run_id": run_id,
             "filename": file.filename,
             "staff_id": staff_id,
+            "motorman_name": motorman_name,
+            "motorman_hq": motorman_hq,
+            "nominated_cli_name": nominated_cli_name,
             "from_station": from_station,
             "to_station": to_station,
             "train_number": train_number,
             "date_of_working": date_of_working,
             "analysed_by": analysed_by,
+            "analysed_by_name": analysed_by_name,
             "unit_number": unit_number,
             "train_type": train_type,
             "notes": notes,
@@ -591,6 +763,10 @@ async def upload_spm_file(
             "ordered_stations": ordered_stations if 'ordered_stations' in locals() else [],
             "violations": violations,
             "violation_count": len(violations),
+            "overspeed_events": overspeed_events,
+            "overspeed_summary": overspeed_summary,
+            "brake_tests": brake_tests,
+            "abnormality_text": abnormality_text,
             "data": spm_rows,
             "row_count": len(df),
             "max_speed": float(df["Speed"].max()),
@@ -598,27 +774,23 @@ async def upload_spm_file(
             "platform_entry_data": platform_entry_data,
         }
         run_row = {
-        "run_id": run_id,
-       "uploaded_by_user_id": None,
-      "original_filename": file.filename,
-
-     "date_of_working": date_of_working,
-      "train_number": train_number,
-     "unit_no": unit_number,
-     "from_station": from_station,
-     "to_station": to_station,
-
-     "motorman_hrms_id": staff_id,
-     "motorman_cms_id": None,
-
-      "nom_cli_cms_id": None,
-        "done_by_cli_cms_id": None,
-
-        "abnormality_noticed": notes,   # your existing field
-         "max_speed": float(df["Speed"].max()),
-        "avg_speed": float(df["Speed"].mean()),
-        "total_distance": float(df["Distance"].sum()),
-}
+            "run_id": run_id,
+            "uploaded_by_user_id": None,
+            "original_filename": file.filename,
+            "date_of_working": date_of_working,
+            "train_number": train_number,
+            "unit_no": unit_number,
+            "from_station": from_station,
+            "to_station": to_station,
+            "motorman_hrms_id": staff_id,
+            "motorman_cms_id": motorman_cms_id or None,
+            "nom_cli_cms_id": nominated_cli_cms_id or None,
+            "done_by_cli_cms_id": analysed_by or None,
+            "abnormality_noticed": abnormality_text,
+            "max_speed": float(df["Speed"].max()),
+            "avg_speed": float(df["Speed"].mean()),
+            "total_distance": float(df["Distance"].sum()),
+        }
 
         insert_run(run_row)
 
@@ -743,6 +915,9 @@ async def upload_spm_file(
             "success": True,
             "run_id": run_id,
             "rows_processed": len(df),
+            "motorman_name": motorman_name,
+            "motorman_hq": motorman_hq,
+            "nominated_cli_name": nominated_cli_name,
             "corridor_info": corridor_info,
             "train_type": train_type,
             "halts_detected": len(halting_station_map),
@@ -763,6 +938,9 @@ async def upload_spm_file(
             "start_time": start_time,
             "end_time": end_time,
             "duration": duration,
+            "overspeed_events": overspeed_events,
+            "overspeed_summary": overspeed_summary,
+            "abnormality_text": abnormality_text,
         }
 
     except Exception as e:
@@ -790,6 +968,103 @@ async def list_runs():
             for run_id, data in runs_storage.items()
         ]
     }
+
+
+@app.get("/api/export-daily-csv")
+async def export_daily_csv(date: Optional[str] = None):
+    """
+    Export daily SPM analysis summary as CSV.
+    Format matches the manual daily analysis spreadsheet.
+
+    Args:
+        date: Date in YYYY-MM-DD format (default: today)
+    """
+    from fastapi.responses import StreamingResponse
+    import io
+    import csv
+
+    # Default to today if no date provided
+    if not date:
+        date = datetime.now().strftime("%Y-%m-%d")
+
+    # Filter runs by analysis date (uploaded_at)
+    daily_runs = []
+    for run_id, data in runs_storage.items():
+        uploaded_at = data.get("uploaded_at", "")
+        if uploaded_at.startswith(date):
+            daily_runs.append(data)
+
+    # Sort by upload time
+    daily_runs.sort(key=lambda x: x.get("uploaded_at", ""))
+
+    # Create CSV in memory
+    output = io.StringIO()
+    writer = csv.writer(output)
+
+    # Write header
+    writer.writerow([
+        "",
+        "ANALYSIS DATE",
+        "DATE OF WORKING",
+        "Train No.",
+        "D-CAB",
+        "FROM",
+        "TO",
+        "MM Name",
+        "HQ",
+        "NOM CLI",
+        "DONE BY CLI",
+        "Abnormality noticed"
+    ])
+
+    # Write data rows
+    for idx, run in enumerate(daily_runs, 1):
+        # Format analysis date
+        uploaded_at = run.get("uploaded_at", "")
+        if uploaded_at:
+            try:
+                dt_obj = datetime.fromisoformat(uploaded_at.replace("Z", "+00:00"))
+                analysis_date = dt_obj.strftime("%d-%m-%Y")
+            except:
+                analysis_date = uploaded_at[:10]
+        else:
+            analysis_date = ""
+
+        # Format date of working
+        dow = run.get("date_of_working", "")
+        if dow:
+            try:
+                dt_obj = datetime.strptime(dow, "%Y-%m-%d")
+                dow_formatted = dt_obj.strftime("%d-%m-%Y")
+            except:
+                dow_formatted = dow
+        else:
+            dow_formatted = ""
+
+        writer.writerow([
+            "",  # Row number placeholder
+            analysis_date,
+            dow_formatted,
+            run.get("train_number", ""),
+            run.get("unit_number", ""),
+            run.get("from_station", ""),
+            run.get("to_station", ""),
+            run.get("motorman_name", ""),
+            run.get("motorman_hq", ""),
+            run.get("nominated_cli_name", ""),
+            run.get("analysed_by_name", "") or run.get("analysed_by", ""),
+            run.get("abnormality_text", "NO ABNORMALITY")
+        ])
+
+    # Prepare response
+    output.seek(0)
+    filename = f"DAILY_SPM_ANALYSIS_{date}.csv"
+
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )
 
 
 @app.get("/runs/{run_id}")
@@ -1053,6 +1328,8 @@ async def get_chart_data(
         "platform_entry_data": platform_entry_data,
         "violations": run_data.get("violations", []),
         "violation_count": run_data.get("violation_count", 0),
+        "overspeed_events": run_data.get("overspeed_events", []),
+        "overspeed_summary": run_data.get("overspeed_summary", {}),
     }
 
 

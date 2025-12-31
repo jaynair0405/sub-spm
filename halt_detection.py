@@ -152,7 +152,8 @@ class HaltDetector:
         from_station: Optional[str] = None,
         to_station: Optional[str] = None,
         max_isd_diff: float = 100.0,
-        max_cd_diff: float = 300.0
+        max_cd_diff: float = 300.0,
+        fast_train_halts: Optional[List[str]] = None
     ) -> Dict[str, float]:
         """
         Match halts to stations using ISD (Inter-Station Distance) pattern matching.
@@ -188,15 +189,17 @@ class HaltDetector:
         if not halts:
             return {}
 
-        # Get corridor stations and first record (for ISDs)
+        # Get corridor stations and all records (for ISDs)
         all_stations = corridor_data.stations
         if not corridor_data.records:
             print("[DEBUG ISD] No corridor records found")
             return {}
 
-        first_record = corridor_data.records[0]
-        corridor_isds = first_record.inter_station_distances
-        corridor_cumulative = first_record.cumulative_distances
+        # Keep all records for best-match ISD lookup
+        all_records = corridor_data.records
+        # Use first record for cumulative distances (station positions)
+        corridor_cumulative = all_records[0].cumulative_distances
+        print(f"[DEBUG ISD] Loaded {len(all_records)} corridor records for ISD matching")
 
         # Calculate ISDs from SPM halts
         halt_cumulative = [h['cumulative_distance'] for h in halts]
@@ -241,11 +244,63 @@ class HaltDetector:
 
         # Determine direction
         if end_idx >= start_idx:
-            ordered_stations = all_stations[start_idx:end_idx + 1]
             direction = "forward"
         else:
-            ordered_stations = list(reversed(all_stations[end_idx:start_idx + 1]))
             direction = "reverse"
+
+        # For FAST trains, use provided halt list instead of all stations
+        if fast_train_halts:
+            # Filter halts to only those in corridor
+            nominated_halts = []
+            for station in fast_train_halts:
+                station_upper = station.upper()
+                if station_upper in all_stations:
+                    nominated_halts.append(station_upper)
+
+            # Check if from_station is in nominated halts
+            # If not, prepend corridor stations from from_station to first nominated halt
+            # (Branch stations like TLA, ABY, SHD are local - all trains stop there)
+            ordered_stations = nominated_halts
+
+            if start_station and nominated_halts and start_station not in nominated_halts:
+                first_nominated = nominated_halts[0]
+                if first_nominated in all_stations:
+                    first_nom_idx = all_stations.index(first_nominated)
+                    # Add all corridor stations from start to first nominated halt
+                    if direction == "forward":
+                        branch_stations = all_stations[start_idx:first_nom_idx]
+                    else:
+                        branch_stations = list(reversed(all_stations[first_nom_idx+1:start_idx+1]))
+                    ordered_stations = branch_stations + ordered_stations
+                    print(f"[DEBUG ISD] FAST TRAIN: Prepended {len(branch_stations)} branch stations")
+                    print(f"[DEBUG ISD] Branch (start): {', '.join(branch_stations)}")
+
+            # Check if to_station is in nominated halts
+            # If not, append corridor stations from last nominated halt to to_station
+            # (Branch stations beyond KYN like SHD, ABY, TLA are local - all trains stop there)
+            end_station = to_station.upper() if to_station else None
+            if end_station and nominated_halts and end_station not in nominated_halts:
+                last_nominated = nominated_halts[-1]
+                if last_nominated in all_stations and end_station in all_stations:
+                    last_nom_idx = all_stations.index(last_nominated)
+                    end_idx_actual = all_stations.index(end_station)
+                    # Add all corridor stations from last nominated halt to end
+                    if direction == "forward":
+                        branch_stations_end = all_stations[last_nom_idx+1:end_idx_actual+1]
+                    else:
+                        branch_stations_end = list(reversed(all_stations[end_idx_actual:last_nom_idx]))
+                    ordered_stations = ordered_stations + branch_stations_end
+                    print(f"[DEBUG ISD] FAST TRAIN: Appended {len(branch_stations_end)} branch stations")
+                    print(f"[DEBUG ISD] Branch (end): {', '.join(branch_stations_end)}")
+
+            print(f"[DEBUG ISD] FAST TRAIN: Using {len(ordered_stations)} total halts")
+            print(f"[DEBUG ISD] Halts: {', '.join(ordered_stations)}")
+        else:
+            # LOCAL trains: use all stations in range
+            if direction == "forward":
+                ordered_stations = all_stations[start_idx:end_idx + 1]
+            else:
+                ordered_stations = list(reversed(all_stations[end_idx:start_idx + 1]))
 
         print(f"[DEBUG ISD] Route: {ordered_stations[0]} → {ordered_stations[-1]} ({len(ordered_stations)} stations, {direction})")
 
@@ -316,87 +371,155 @@ class HaltDetector:
                 'ordered_stations': ordered_stations
             }
 
-        # Match subsequent halts using ISD pattern (simplified algorithm)
+        # Match subsequent halts using ISD pattern with forward-looking best-match
+        # When a halt matches, look forward 200m for potentially better matches (smaller ISD diff)
         current_station_idx = 0  # Index in ordered_stations (0 = start_station)
-        accumulated_isd = 0.0  # Accumulated ISD from unmatched halts/signal stops
+        FORWARD_WINDOW = 200.0  # Look ahead 200m for better matches
+
+        # Helper function to calculate expected ISD for a candidate station
+        # Returns list of all valid (expected_isd, record_idx) pairs for best-match searching
+        def get_all_expected_isds_for_station(from_station_idx: int, to_station_idx: int) -> list:
+            """Returns list of (expected_isd, record_idx) tuples for all valid records"""
+            valid_isds = []
+
+            for record_idx, record in enumerate(all_records):
+                corridor_isds = record.inter_station_distances
+                expected_isd = 0.0
+                valid_record = True
+
+                try:
+                    for i in range(from_station_idx, to_station_idx):
+                        station_from = ordered_stations[i]
+                        station_to = ordered_stations[i + 1]
+                        idx_from = all_stations.index(station_from)
+                        idx_to = all_stations.index(station_to)
+
+                        if direction == "forward":
+                            isd_value = corridor_isds[idx_to] if idx_to < len(corridor_isds) else 0
+                        else:
+                            isd_value = corridor_isds[idx_from] if idx_from < len(corridor_isds) else 0
+
+                        if isd_value == 0 or isd_value is None:
+                            valid_record = False
+                            break
+                        expected_isd += isd_value
+                except (ValueError, IndexError):
+                    valid_record = False
+
+                if valid_record and expected_isd > 0:
+                    valid_isds.append((expected_isd, record_idx))
+
+            return valid_isds
 
         # Start from the halt after the matched start_halt
-        for halt_idx in range(start_halt_idx + 1, len(halt_cumulative)):
-            halt_isd = halt_cumulative[halt_idx] - halt_cumulative[halt_idx - 1]  # ISD from previous halt to this halt
-            accumulated_isd += halt_isd
+        halt_idx = start_halt_idx + 1
+        last_matched_halt_idx = start_halt_idx
+
+        while halt_idx < len(halt_cumulative):
+            # Calculate accumulated ISD from last matched halt
+            accumulated_isd = halt_cumulative[halt_idx] - halt_cumulative[last_matched_halt_idx]
 
             # Try to match with next corridor station(s)
-            matched = False
-
-            # Look ahead up to 5 stations (handles skipped stations)
             max_lookahead = min(5, len(ordered_stations) - current_station_idx)
-
-            # Debug: track all candidates tried for this halt
             candidates_tried = []
+            best_match = None  # Will store best match found
 
             for lookahead in range(1, max_lookahead):
                 candidate_idx = current_station_idx + lookahead
                 candidate_station = ordered_stations[candidate_idx]
 
-                # Calculate expected corridor ISD from current to candidate station
-                # CSV structure: each column shows ISD FROM previous station TO that station
-                expected_isd = 0.0
-                try:
-                    for i in range(current_station_idx, candidate_idx):
-                        station_from = ordered_stations[i]
-                        station_to = ordered_stations[i + 1]
+                # Get ALL valid ISDs from all records
+                all_isds = get_all_expected_isds_for_station(current_station_idx, candidate_idx)
 
-                        # Get indices in original corridor
-                        idx_from = all_stations.index(station_from)
-                        idx_to = all_stations.index(station_to)
-
-                        # ISD is stored at the DESTINATION station (not source)
-                        if direction == "forward":
-                            # Forward: use ISD at destination station
-                            expected_isd += corridor_isds[idx_to]
-                        else:
-                            # Reverse: use ISD at destination (which has lower index)
-                            expected_isd += corridor_isds[idx_from]
-                except (ValueError, IndexError) as e:
-                    print(f"[DEBUG ISD] Warning: Error calculating corridor ISD: {e}")
+                if not all_isds:
                     continue
 
-                # Compare accumulated ISD with expected corridor ISD
-                isd_diff = abs(accumulated_isd - expected_isd)
+                # Find the record with smallest ISD difference
+                best_expected_isd = None
+                best_isd_diff = float('inf')
+                best_record_idx = None
 
-                # Track this candidate for debugging
+                for expected_isd, record_idx in all_isds:
+                    isd_diff = abs(accumulated_isd - expected_isd)
+                    if isd_diff < best_isd_diff:
+                        best_isd_diff = isd_diff
+                        best_expected_isd = expected_isd
+                        best_record_idx = record_idx
+
                 candidates_tried.append({
                     'station': candidate_station,
-                    'expected_isd': expected_isd,
-                    'isd_diff': isd_diff
+                    'expected_isd': best_expected_isd,
+                    'isd_diff': best_isd_diff,
+                    'record_idx': best_record_idx
                 })
 
-                if isd_diff <= max_isd_diff:
-                    # Match found!
-                    actual_cd = halt_cumulative[halt_idx]
-                    matched_stations[candidate_station] = actual_cd
+                if best_isd_diff <= max_isd_diff:
+                    # Potential match found - store as candidate
+                    if best_match is None or best_isd_diff < best_match['isd_diff']:
+                        best_match = {
+                            'halt_idx': halt_idx,
+                            'station_idx': candidate_idx,
+                            'station': candidate_station,
+                            'isd_diff': best_isd_diff,
+                            'expected_isd': best_expected_isd,
+                            'accumulated_isd': accumulated_isd,
+                            'record_idx': best_record_idx,
+                            'halt_position': halt_cumulative[halt_idx]
+                        }
+                    break  # Found match for this halt, check forward window
 
-                    print(f"[DEBUG ISD] Match {len(matched_stations)}/{len(halts)}: Halt at {actual_cd:.0f}m → {candidate_station} (ISD Δ={isd_diff:.0f}m, expected={expected_isd:.0f}m, actual={accumulated_isd:.0f}m)")
+            if best_match:
+                # Forward-looking: check next halts within 200m for better match
+                first_match_position = best_match['halt_position']
+                forward_halt_idx = halt_idx + 1
 
-                    if lookahead > 1:
-                        skipped = ordered_stations[current_station_idx + 1:candidate_idx]
-                        print(f"[DEBUG ISD]   (Skipped stations: {', '.join(skipped)})")
+                while forward_halt_idx < len(halt_cumulative):
+                    forward_position = halt_cumulative[forward_halt_idx]
 
-                    # Update state
-                    current_station_idx = candidate_idx
-                    accumulated_isd = 0.0
-                    matched = True
-                    break
+                    # Stop if beyond forward window
+                    if forward_position - first_match_position > FORWARD_WINDOW:
+                        break
 
-            if not matched:
-                # No match found - keep accumulating (signal stop or GPS drift)
+                    # Calculate ISD for this forward halt
+                    forward_accumulated = forward_position - halt_cumulative[last_matched_halt_idx]
+                    forward_diff = abs(forward_accumulated - best_match['expected_isd'])
+
+                    # If this halt has smaller ISD diff, it's a better match
+                    if forward_diff < best_match['isd_diff'] and forward_diff <= max_isd_diff:
+                        print(f"[DEBUG ISD] Forward-look: Better match at {forward_position:.0f}m (Δ={forward_diff:.0f}m) vs {best_match['halt_position']:.0f}m (Δ={best_match['isd_diff']:.0f}m)")
+                        best_match['halt_idx'] = forward_halt_idx
+                        best_match['isd_diff'] = forward_diff
+                        best_match['accumulated_isd'] = forward_accumulated
+                        best_match['halt_position'] = forward_position
+
+                    forward_halt_idx += 1
+
+                # Accept the best match
+                actual_cd = best_match['halt_position']
+                matched_stations[best_match['station']] = actual_cd
+
+                print(f"[DEBUG ISD] Match {len(matched_stations)}/{len(halts)}: Halt at {actual_cd:.0f}m → {best_match['station']} (ISD Δ={best_match['isd_diff']:.0f}m, expected={best_match['expected_isd']:.0f}m, actual={best_match['accumulated_isd']:.0f}m, record={best_match['record_idx'] + 1})")
+
+                if best_match['station_idx'] > current_station_idx + 1:
+                    skipped = ordered_stations[current_station_idx + 1:best_match['station_idx']]
+                    print(f"[DEBUG ISD]   (Skipped stations: {', '.join(skipped)})")
+
+                # Update state - skip to halt after the matched one
+                current_station_idx = best_match['station_idx']
+                last_matched_halt_idx = best_match['halt_idx']
+                halt_idx = best_match['halt_idx'] + 1
+            else:
+                # No match found - log and move to next halt
+                halt_isd = halt_cumulative[halt_idx] - halt_cumulative[halt_idx - 1]
                 print(f"[DEBUG ISD] Halt {halt_idx + 1}/{len(halts)} at {halt_cumulative[halt_idx]:.0f}m: No match (ISD={halt_isd:.0f}m, accumulated={accumulated_isd:.0f}m)")
 
-                # Show what candidates were tried and why they didn't match
                 if candidates_tried:
-                    print(f"[DEBUG ISD]   Tried candidates:")
+                    print(f"[DEBUG ISD]   Tried candidates (best match from {len(all_records)} records):")
                     for c in candidates_tried:
-                        print(f"[DEBUG ISD]     - {c['station']}: expected={c['expected_isd']:.0f}m, diff={c['isd_diff']:.0f}m (max allowed={max_isd_diff:.0f}m)")
+                        rec_info = f", record={c['record_idx'] + 1}" if c.get('record_idx') is not None else ""
+                        print(f"[DEBUG ISD]     - {c['station']}: expected={c['expected_isd']:.0f}m, diff={c['isd_diff']:.0f}m (max allowed={max_isd_diff:.0f}m{rec_info})")
+
+                halt_idx += 1
 
         print(f"[DEBUG ISD] ✓ Matched {len(matched_stations)}/{len(halts)} halts to stations")
         print(f"[DEBUG ISD] Stations matched: {list(matched_stations.keys())}")

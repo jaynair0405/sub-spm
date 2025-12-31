@@ -127,7 +127,7 @@
   "KYN-THK": {
     "section": "KYN-THK",
     "station": "KYN",
-    "platform_length_km": 0.0
+    "platform_length_km": 0.265
   },
   "THK-DI": {
     "section": "THK-DI",
@@ -632,7 +632,7 @@
   "KYN-SHD": {
     "section": "KYN-SHD",
     "station": "KYN",
-    "platform_length_km": 0.0
+    "platform_length_km": 0.265
   },
   "SHD-ABY": {
     "section": "SHD-ABY",

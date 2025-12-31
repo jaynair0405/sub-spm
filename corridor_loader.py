@@ -248,6 +248,7 @@ class CorridorManager:
         self.train_code_map: Dict[str, str] = {}
         self.fast_halt_map: Dict[str, List[str]] = {}
         self.corridors: Dict[str, CorridorData] = {}
+        self.train_corridor_map: Dict[str, Dict] = {}  # train_number -> {from, to, direction, type, route}
 
     def _normalize_train_number(self, value: str) -> str:
         return value.replace(" ", "").upper()
@@ -280,6 +281,41 @@ class CorridorManager:
                 key = self._normalize_train_number(train_no)
                 stations = [station.strip().upper() for station in halts.split(",") if station.strip()]
                 self.fast_halt_map[key] = stations
+
+    def load_train_corridor_map(self, csv_name: str = "train_corridor_map.csv") -> None:
+        """Load train corridor map with From/To stations for each train."""
+        path = self.data_root / csv_name
+        if not path.exists():
+            print(f"[WARNING] {csv_name} not found at {path}")
+            return
+        with path.open(newline="") as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                train_code = row.get("TrainCode", "").strip()
+                train_name = row.get("Train", "").strip()
+                if not train_code:
+                    continue
+                # Store by both train code and train name for flexible lookup
+                entry = {
+                    "train": train_name,
+                    "train_code": train_code,
+                    "from_station": row.get("FromExpected", "").strip().upper(),
+                    "to_station": row.get("ToExpected", "").strip().upper(),
+                    "direction": row.get("Direction", "").strip().upper(),
+                    "route": row.get("Route", "").strip().upper(),
+                    "type": int(row.get("Type", 0) or 0),  # 0=Single, 1=Slow, 2=Fast
+                }
+                self.train_corridor_map[train_code] = entry
+                if train_name:
+                    self.train_corridor_map[train_name.upper()] = entry
+        print(f"✓ Loaded {len(self.train_corridor_map)} train corridor entries")
+
+    def lookup_train(self, train_number: str) -> Optional[Dict]:
+        """Lookup train info by train number or code. Returns From/To/Direction/Type."""
+        if not train_number:
+            return None
+        key = self._normalize_train_number(train_number)
+        return self.train_corridor_map.get(key)
 
     def load_default_corridors(self) -> None:
         for name, relative in self.DEFAULT_FILES.items():
@@ -324,13 +360,12 @@ class CorridorManager:
         from_station = (from_station or "").strip().upper()
         to_station = (to_station or "").strip().upper()
 
-        # Check Trans-Harbour and Harbour routes first (unchanged)
+        # Check Trans-Harbour and Harbour routes first
+        # THB trains: 990, 992, 993 go to PNVL; 994, 995 go to VSH
         if prefix in self.TRANS_HARBOUR_PREFIXES:
-            if prefix == "990":
-                return "THB_PNVL"
             if prefix in {"994", "995"} or from_station in self.THB_VSH_STATIONS or to_station in self.THB_VSH_STATIONS:
                 return "THB_VSH"
-            return "THB"
+            return "THB_PNVL"  # Default: PNVL (990, 992, 993 and others)
 
         if prefix in self.HARBOUR_PREFIXES or prefix in self.PORT_PREFIXES:
             return "HARBOUR"

@@ -17,6 +17,8 @@
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap"
       rel="stylesheet"
     />
+    <!-- Tom Select for searchable dropdowns -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/css/tom-select.css" />
     <style>
       :root {
         --brand: #0b3d91;
@@ -141,6 +143,33 @@
         border-color: var(--brand);
         box-shadow: 0 0 0 3px rgba(11, 61, 145, 0.15);
         outline: none;
+      }
+      /* Tom Select custom styling to match app theme */
+      .ts-wrapper.single .ts-control {
+        font: inherit;
+        padding: 8px 12px;
+        border-radius: 12px;
+        border: 1px solid var(--border);
+        background: #fff;
+        min-height: 44px;
+      }
+      .ts-wrapper.single .ts-control:focus,
+      .ts-wrapper.single.focus .ts-control {
+        border-color: var(--brand);
+        box-shadow: 0 0 0 3px rgba(11, 61, 145, 0.15);
+      }
+      .ts-dropdown {
+        border-radius: 12px;
+        border: 1px solid var(--border);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      }
+      .ts-dropdown .option.active {
+        background: var(--brand-soft);
+        color: var(--brand);
+      }
+      .ts-dropdown .option:hover {
+        background: var(--brand-soft);
+        color: var(--brand);
       }
       .upload-zone {
         position: relative;
@@ -466,6 +495,26 @@
 .btn-pdf.visible {
   display: inline-flex;
 }
+/* CSV Export Button */
+.btn-csv {
+  background: #17a2b8;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 500;
+  display: none;
+  gap: 6px;
+  align-items: center;
+  margin-left: 8px;
+}
+.btn-csv:hover {
+  background: #138496;
+}
+.btn-csv.visible {
+  display: inline-flex;
+}
 .back-btn {
   background: transparent;
   border: none;
@@ -547,11 +596,23 @@
               </select>
             </label>
             <label>
+              Train Number
+              <input
+                type="text"
+                id="trainNumber"
+                placeholder="e.g., K40, PL201"
+                style="text-transform: uppercase;"
+                oninput="this.value = this.value.toUpperCase()"
+              />
+            </label>
+            <label>
               From Station
               <input
                 type="text"
                 id="fromStation"
                 placeholder="e.g., CSMT, VDLR, TNA (optional)"
+                style="text-transform: uppercase;"
+                oninput="this.value = this.value.toUpperCase()"
               />
             </label>
             <label>
@@ -560,14 +621,8 @@
                 type="text"
                 id="toStation"
                 placeholder="e.g., KYN, PNVL, TNA (optional)"
-              />
-            </label>
-            <label>
-              Train Number
-              <input
-                type="text"
-                id="trainNumber"
-                placeholder="e.g., K40, 96035"
+                style="text-transform: uppercase;"
+                oninput="this.value = this.value.toUpperCase()"
               />
             </label>
             <label>
@@ -612,6 +667,14 @@
                 <line x1="9" y1="15" x2="15" y2="15"></line>
               </svg>
               Export PDF
+            </button>
+            <button type="button" id="exportCsvBtn" class="btn-csv">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="7 10 12 15 17 10"></polyline>
+                <line x1="12" y1="15" x2="12" y2="3"></line>
+              </svg>
+              Export Daily CSV
             </button>
           </div>
         </section>
@@ -732,14 +795,6 @@
         </section>
         <section class="card">
           <div class="panel-header">
-            <span>Brake Feel Test</span>
-            <span class="subtle">Acceleration → braking → recovery window</span>
-          </div>
-          <div id="brakeFeelStatus" class="subtle" style="margin-bottom:8px;">Brake feel detection pending...</div>
-          <div id="brakeFeelChart" class="brakefeel-chart"></div>
-        </section>
-        <section class="card">
-          <div class="panel-header">
             <span>Trip Summary</span>
             <span class="subtle">Exceptions & observations</span>
           </div>
@@ -765,21 +820,51 @@
                   </table>
                 </td>
               </tr>
-              <tr class="section-title"><td colspan="2">MPS/PSR Violations</td></tr>
-              <tr><td colspan="2">No data available</td></tr>
+              <tr class="section-title"><td colspan="2">MPS/PSR Violations (PSR+3 Threshold)</td></tr>
+              <tr>
+                <td colspan="2">
+                  <table class="summary-table">
+                    <thead>
+                      <tr>
+                        <th>#</th>
+                        <th>Time</th>
+                        <th>Location (km)</th>
+                        <th>Max Speed</th>
+                        <th>Limit</th>
+                        <th>Excess</th>
+                        <th>Severity</th>
+                      </tr>
+                    </thead>
+                    <tbody id="overspeedEventsBody">
+                      <tr><td colspan="7" class="no-data">No overspeed events detected</td></tr>
+                    </tbody>
+                  </table>
+                </td>
+              </tr>
               <tr class="section-title"><td colspan="2">Brake Feel Test</td></tr>
               <tr><td>Train start time</td><td id="bftStartTime">-</td></tr>
               <tr><td>Test time</td><td id="bftTestTime">-</td></tr>
               <tr><td>Test speed</td><td id="bftTestSpeed">-</td></tr>
               <tr><td>Speed dropped to</td><td id="bftDropSpeed">-</td></tr>
               <tr><td>Observation</td><td id="bftObservation">No data</td></tr>
+              <tr class="section-title"><td colspan="2">Abnormality Summary</td></tr>
+              <tr><td colspan="2" id="abnormalityText" style="white-space: pre-line; font-weight: 500;">-</td></tr>
             </tbody>
           </table>
+        </section>
+        <section class="card">
+          <div class="panel-header">
+            <span>Brake Feel Test</span>
+            <span class="subtle">Acceleration → braking → recovery window</span>
+          </div>
+          <div id="brakeFeelStatus" class="subtle" style="margin-bottom:8px;">Brake feel detection pending...</div>
+          <div id="brakeFeelChart" class="brakefeel-chart"></div>
         </section>
       </main>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/echarts@5"></script>
+    <script src="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/js/tom-select.complete.min.js"></script>
     <script>
       const uploadZone = document.getElementById("uploadZone");
       const fileInput = document.getElementById("fileInput");
@@ -823,6 +908,54 @@
             </tr>
           `;
         }
+        tbody.innerHTML = rowsHtml;
+      };
+
+      const renderOverspeedEvents = (events = [], summary = {}) => {
+        const tbody = document.getElementById("overspeedEventsBody");
+        if (!tbody) return;
+
+        if (!events || events.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="7" class="no-data">No overspeed events detected</td></tr>`;
+          return;
+        }
+
+        const severityColors = {
+          minor: '#FFA500',
+          moderate: '#FF6B00',
+          severe: '#FF0000',
+          critical: '#8B0000'
+        };
+
+        let rowsHtml = "";
+        events.forEach((event) => {
+          const color = severityColors[event.severity] || '#FF0000';
+          rowsHtml += `
+            <tr>
+              <td>${event.event_number}</td>
+              <td>${event.start_time} - ${event.end_time}</td>
+              <td>${event.start_km} - ${event.end_km}</td>
+              <td style="font-weight:bold;">${event.max_speed} km/h</td>
+              <td>${event.psr_value} km/h</td>
+              <td style="color:${color}; font-weight:bold;">+${event.max_excess} km/h</td>
+              <td style="color:${color}; text-transform:uppercase;">${event.severity}</td>
+            </tr>
+          `;
+        });
+
+        // Add summary row
+        if (summary && summary.total_events > 0) {
+          rowsHtml += `
+            <tr style="background:#f5f5f5; font-weight:bold;">
+              <td colspan="3">TOTAL: ${summary.total_events} events</td>
+              <td>${summary.max_speed_overall} km/h</td>
+              <td>-</td>
+              <td>+${summary.max_excess_overall} km/h</td>
+              <td>${summary.by_severity?.critical || 0}C / ${summary.by_severity?.severe || 0}S / ${summary.by_severity?.moderate || 0}M</td>
+            </tr>
+          `;
+        }
+
         tbody.innerHTML = rowsHtml;
       };
 
@@ -969,9 +1102,13 @@
           const segmentChart = echarts.init(chartDiv);
           segmentCharts.push(segmentChart);
 
-          const segmentDistances = segmentSamples.map((s) =>
-            s.cumulative_distance ? s.cumulative_distance.toFixed(1) : "0.0"
-          );
+          // Check if distances are in meters and convert to km
+          const segMaxDist = Math.max(...segmentSamples.map(s => s.cumulative_distance || 0));
+          const segIsMeters = segMaxDist > 200;
+          const segmentDistances = segmentSamples.map((s) => {
+            const dist = s.cumulative_distance || 0;
+            return segIsMeters ? (dist / 1000).toFixed(2) : dist.toFixed(2);
+          });
           const segmentSpeeds = segmentSamples.map((s) => s.speed);
           const segmentPSR = segmentSamples.map((s) => s.psr || null);
           const hasPSR = segmentPSR.some((v) => v !== null);
@@ -1143,7 +1280,8 @@
             const distFromHaltMeters = sampleInMeters ? distFromHalt : distFromHalt * 1000;
             dataPoints.push([Math.round(distFromHaltMeters), s.speed]);
 
-            if (s.speed === 0) break;
+            // Don't break at speed=0 - continue to actual halt position
+            // Signal stops before platform should still show in chart
           }
 
           if (dataPoints.length > 0) {
@@ -1283,11 +1421,21 @@
           return;
         }
 
+        // Limit to first segment only (start to first halt)
+        // Use firstHaltIndex if available, otherwise use ~25% of samples or max 500 points
+        let endIdx = samples.length;
+        if (firstHaltIndex && firstHaltIndex > 0) {
+          endIdx = Math.min(firstHaltIndex + 50, samples.length); // Include some buffer after first halt
+        } else {
+          endIdx = Math.min(Math.floor(samples.length * 0.25), 500);
+        }
+        const segmentSamples = samples.slice(0, endIdx);
+
         if (!brakeFeelChart) {
           brakeFeelChart = echarts.init(container);
         }
 
-        const distances = samples.map((s, idx) => {
+        const distances = segmentSamples.map((s, idx) => {
           const value =
             s.cumulative_distance !== undefined && s.cumulative_distance !== null
               ? s.cumulative_distance
@@ -1296,10 +1444,13 @@
               : idx;
           return Number(value);
         });
+        // Check if distances are in meters and convert to km
+        const bfMaxDist = Math.max(...distances);
+        const bfIsMeters = bfMaxDist > 200;
         const distanceLabels = distances.map((d) =>
-          Number.isFinite(d) ? d.toFixed(2) : "0.00"
+          Number.isFinite(d) ? (bfIsMeters ? (d / 1000).toFixed(2) : d.toFixed(2)) : "0.00"
         );
-        const speeds = samples.map((s) => s.speed ?? 0);
+        const speeds = segmentSamples.map((s) => s.speed ?? 0);
 
         const markAreas = (brakeTests || [])
           .map((test) => {
@@ -1407,11 +1558,19 @@
           observationCell.textContent = "No brake feel test detected";
         }
       }
-      const CHART_API_BASE = "/spm/sub-spm";
-      //const CHART_API_BASE = "";
-      // const CHART_API_BASE = "http://127.0.0.1:8000";
+      // ╔════════════════════════════════════════════════════════════════════╗
+      // ║  IMPORTANT: API BASE CONFIGURATION - CHANGE BEFORE DEPLOYMENT!      ║
+      // ╠════════════════════════════════════════════════════════════════════╣
+      // ║  FOR SERVER (crtms.in):  const CHART_API_BASE = "/spm/sub-spm";     ║
+      // ║  FOR LOCAL DEVELOPMENT:  const CHART_API_BASE = "";                 ║
+      // ╚════════════════════════════════════════════════════════════════════╝
+
+      // >>> CURRENT SETTING: LOCAL DEVELOPMENT <<<
+      //const CHART_API_BASE = "/spm/sub-spm";  // USE THIS FOR SERVER
+      const CHART_API_BASE = "";                // USE THIS FOR LOCAL
       let currentRunId = null;
       let staffData = {}; // Store staff data for nominated CLI lookup
+      let staffSelect = null; // Tom Select instance for staff dropdown
 
       // Loading overlay helpers
       function showLoading(message = "Processing SPM data...") {
@@ -1444,6 +1603,27 @@
         const btn = document.getElementById("pdfBtn");
         if (btn) btn.classList.remove("visible");
       }
+
+      // CSV Export functions
+      function showCsvButton() {
+        const btn = document.getElementById("exportCsvBtn");
+        if (btn) btn.classList.add("visible");
+      }
+
+      function hideCsvButton() {
+        const btn = document.getElementById("exportCsvBtn");
+        if (btn) btn.classList.remove("visible");
+      }
+
+      function exportDailyCsv() {
+        // Get today's date in YYYY-MM-DD format
+        const today = new Date().toISOString().split('T')[0];
+        // Open the CSV download in a new tab/window
+        window.open(`${CHART_API_BASE}/api/export-daily-csv?date=${today}`, '_blank');
+      }
+
+      // Add click handler for CSV export button
+      document.getElementById("exportCsvBtn")?.addEventListener("click", exportDailyCsv);
 
       // Sheds data cache
       let shedsData = null;
@@ -1556,6 +1736,25 @@
             // Store for later lookup
             staffData[staff.hrms_id] = staff;
           });
+
+          // Initialize Tom Select for searchable dropdown
+          if (staffSelect) {
+            staffSelect.destroy();
+          }
+          staffSelect = new TomSelect(select, {
+            placeholder: "Type to search motorman...",
+            allowEmptyOption: true,
+            create: false,
+            maxItems: 1,              // Single selection only
+            selectOnTab: true,        // Tab key selects highlighted item
+            closeAfterSelect: true,   // Close dropdown after selection
+            sortField: { field: "text", direction: "asc" },
+            render: {
+              no_results: function() {
+                return '<div class="no-results">No motorman found</div>';
+              }
+            }
+          });
         } catch (err) {
           console.error("Error loading staff:", err);
           document.getElementById("staffId").innerHTML = '<option value="">Error loading staff</option>';
@@ -1595,6 +1794,41 @@
         }
       }
 
+      // Train number lookup - auto-fill From/To stations
+      let trainLookupTimer = null;
+      async function lookupTrainNumber(trainNumber) {
+        if (!trainNumber || trainNumber.length < 2) return;
+        try {
+          const response = await fetch(`${CHART_API_BASE}/api/train_lookup/${encodeURIComponent(trainNumber)}`);
+          if (!response.ok) return;
+          const data = await response.json();
+          if (data.found) {
+            // Auto-fill From and To stations (always update on train number change)
+            const fromField = document.getElementById("fromStation");
+            const toField = document.getElementById("toStation");
+            if (data.from_station) {
+              fromField.value = data.from_station;
+            }
+            if (data.to_station) {
+              toField.value = data.to_station;
+            }
+            console.log(`[Train Lookup] ${trainNumber}: ${data.from_station} → ${data.to_station} (${data.type_name})`);
+          }
+        } catch (err) {
+          console.error("Train lookup error:", err);
+        }
+      }
+
+      function onTrainNumberChange(e) {
+        const value = e.target.value.trim();
+        // Clear existing timer
+        if (trainLookupTimer) clearTimeout(trainLookupTimer);
+        // Debounce: wait 500ms after user stops typing
+        trainLookupTimer = setTimeout(() => {
+          lookupTrainNumber(value);
+        }, 500);
+      }
+
       // Initialize dropdowns on page load
       document.addEventListener("DOMContentLoaded", () => {
         loadStaffList();
@@ -1602,6 +1836,7 @@
         loadShedsData();
         document.getElementById("staffId").addEventListener("change", onStaffSelect);
         document.getElementById("unitNumber").addEventListener("input", onUnitNumberChange);
+        document.getElementById("trainNumber").addEventListener("input", onTrainNumberChange);
       });
 
       async function uploadFile() {
@@ -1788,8 +2023,17 @@
           // Filter out starting stations (where platform_entry_speed is 0 or null)
           renderExceptionsTable(payload.station_markers || []);
 
+          // Render overspeed events table (from chart_data for historical runs)
+          renderOverspeedEvents(payload.overspeed_events || [], payload.overspeed_summary || {});
+
           // Update chart with all data
-          const distances = samples.map((s) => s.cumulative_distance ? s.cumulative_distance.toFixed(1) : s.distance.toFixed(1));
+          // Check if distances are in meters (max > 200) and convert to km for display
+          const maxDist = Math.max(...samples.map(s => s.cumulative_distance || s.distance || 0));
+          const isMeters = maxDist > 200;
+          const distances = samples.map((s) => {
+            const dist = s.cumulative_distance || s.distance || 0;
+            return isMeters ? (dist / 1000).toFixed(2) : dist.toFixed(2);
+          });
           const speeds = samples.map((s) => s.speed);
           const psrValues = samples.map((s) => s.psr || null);
 
@@ -2007,6 +2251,7 @@
         processBtn.textContent = "Processing...";
         showLoading("Uploading and analyzing SPM data...");
         hidePdfButton();
+        hideCsvButton();
 
         try {
           // Upload file first
@@ -2122,12 +2367,28 @@
 
             alert(message);
 
+            // Render overspeed events table
+            renderOverspeedEvents(uploadResult.overspeed_events || [], uploadResult.overspeed_summary || {});
+
+            // Display abnormality summary text
+            const abnormalityEl = document.getElementById("abnormalityText");
+            if (abnormalityEl && uploadResult.abnormality_text) {
+              abnormalityEl.textContent = uploadResult.abnormality_text;
+              // Color code based on content
+              if (uploadResult.abnormality_text === "NO ABNORMALITY") {
+                abnormalityEl.style.color = "#28a745";  // Green
+              } else {
+                abnormalityEl.style.color = "#dc3545";  // Red
+              }
+            }
+
             // Load chart data for this run
             showLoading("Loading charts...");
             await loadChartData(currentRunId);
 
-            // Show PDF export button after successful processing
+            // Show PDF and CSV export buttons after successful processing
             showPdfButton();
+            showCsvButton();
           }
         } catch (err) {
           console.error(err);
@@ -2145,7 +2406,10 @@
       clearBtn.addEventListener("click", () => {
         fileInput.value = "";
         fileInfo.textContent = "No file selected yet.";
-        document.getElementById("staffId").selectedIndex = 0;
+        // Reset Tom Select dropdown
+        if (staffSelect) {
+          staffSelect.clear();
+        }
         document.getElementById("fromStation").selectedIndex = 0;
         document.getElementById("toStation").selectedIndex = 0;
         document.getElementById("trainNumber").value = "";
@@ -2157,6 +2421,7 @@
         document.getElementById("pdfHeader").style.display = "none";
         document.getElementById("reportMetadata").style.display = "none";
         hidePdfButton();
+        hideCsvButton();
         // Clear charts
         disposeSegmentCharts();
         disposePlatformEntryCharts();

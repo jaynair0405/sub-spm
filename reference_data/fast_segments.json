@@ -2325,6 +2325,26 @@
     ]
   },
   {
+    "segment": "OMB-KSRA",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 0.83,
+        "limit": 105
+      },
+      {
+        "startPct": 0.83,
+        "endPct": 0.88,
+        "limit": 50
+      },
+      {
+        "startPct": 0.88,
+        "endPct": 1.0,
+        "limit": 105
+      }
+    ]
+  },
+  {
     "segment": "OMB-KE",
     "limits": [
       {
