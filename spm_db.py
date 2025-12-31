@@ -269,6 +269,55 @@ def get_cli_by_cms_id(cms_id: str) -> Optional[Dict[str, Any]]:
         cn.close()
 
 
+def find_existing_run(date_of_working: str, train_number: str, from_station: str, to_station: str) -> Optional[str]:
+    """
+    Check if a run already exists with the same date, train, from, to.
+    Returns the existing run_id if found, None otherwise.
+    """
+    cn = get_db_connection()
+    try:
+        cur = cn.cursor(buffered=True)
+        cur.execute(
+            """
+            SELECT run_id FROM div_sub_spm_runs
+            WHERE date_of_working = %s
+              AND train_number = %s
+              AND from_station = %s
+              AND to_station = %s
+            LIMIT 1
+            """,
+            (date_of_working, train_number, from_station, to_station),
+        )
+        row = cur.fetchone()
+        cur.close()
+        return row[0] if row else None
+    finally:
+        cn.close()
+
+
+def delete_run_cascade(run_id: str) -> bool:
+    """
+    Delete a run and all related data (points, station_windows, window_points).
+    Returns True if deleted, False if not found.
+    """
+    cn = get_db_connection()
+    try:
+        cur = cn.cursor(buffered=True)
+
+        # Delete in order: child tables first, then parent
+        cur.execute("DELETE FROM div_sub_spm_window_points WHERE run_id = %s", (run_id,))
+        cur.execute("DELETE FROM div_sub_spm_station_windows WHERE run_id = %s", (run_id,))
+        cur.execute("DELETE FROM div_sub_spm_points WHERE run_id = %s", (run_id,))
+        cur.execute("DELETE FROM div_sub_spm_runs WHERE run_id = %s", (run_id,))
+
+        deleted = cur.rowcount > 0
+        cn.commit()
+        cur.close()
+        return deleted
+    finally:
+        cn.close()
+
+
 def get_staff_by_hrms(hrms_id: str) -> Optional[Dict[str, Any]]:
     """
     Get staff details by HRMS ID, including nominated CLI info.

@@ -531,6 +531,11 @@
 }
 
 
+/* Print footer - hidden on screen */
+.print-footer {
+  display: none;
+}
+
 /* Print specific adjustments */
 @media print {
   body { background: white; }
@@ -541,6 +546,78 @@
   header { display: none !important; } /* Hide the blue app header */
   .btn-pdf { display: none !important; }
   .loading-overlay { display: none !important; }
+
+  /* Prevent page breaks inside cards, charts, and tables */
+  .card {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  /* Tables should not split across pages */
+  .summary-table, table, .table-wrapper {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  /* Individual chart containers */
+  #chart, #brakeFeelChart, #railwayLine {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  /* Segmented charts - each segment stays together */
+  .segment-charts > div {
+    page-break-inside: avoid;
+    break-inside: avoid;
+    margin-bottom: 10px;
+  }
+
+  /* Platform entry charts */
+  #platformEntryCharts > div {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  /* Allow page breaks between major sections */
+  .card {
+    page-break-after: auto;
+  }
+
+  /* Ensure headers stay with their content */
+  h2, .panel-header {
+    page-break-after: avoid;
+    break-after: avoid;
+  }
+
+  /* Print footer - only visible when printing */
+  .print-footer {
+    display: flex !important;
+    justify-content: space-between;
+    font-size: 8pt;
+    color: #666;
+    margin-top: 30px;
+    padding-top: 10px;
+    border-top: 1px solid #ccc;
+  }
+}
+
+/* Toast notification */
+.toast {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #333;
+  color: white;
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  z-index: 9999;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+.toast.show {
+  opacity: 1;
 }
     </style>
   </head>
@@ -550,6 +627,9 @@
       <div class="loading-spinner"></div>
       <div class="loading-text" id="loadingText">Processing SPM data...</div>
     </div>
+
+    <!-- Toast notification -->
+    <div id="toast" class="toast"></div>
 
     <div class="page-shell">
       <header>
@@ -860,6 +940,12 @@
           <div id="brakeFeelStatus" class="subtle" style="margin-bottom:8px;">Brake feel detection pending...</div>
           <div id="brakeFeelChart" class="brakefeel-chart"></div>
         </section>
+
+        <!-- Print-only footer (appears on last page) -->
+        <div class="print-footer">
+          <span>@CR Sr.DEE TRSO-BB Division</span>
+          <span>Developed by Jayakumar M D Mman Kyn</span>
+        </div>
       </main>
     </div>
 
@@ -1604,6 +1690,14 @@
         if (btn) btn.classList.remove("visible");
       }
 
+      // Toast notification
+      function showToast(message, duration = 4000) {
+        const toast = document.getElementById("toast");
+        toast.textContent = message;
+        toast.classList.add("show");
+        setTimeout(() => toast.classList.remove("show"), duration);
+      }
+
       // CSV Export functions
       function showCsvButton() {
         const btn = document.getElementById("exportCsvBtn");
@@ -2260,7 +2354,10 @@
           if (uploadResult && uploadResult.success) {
             currentRunId = uploadResult.run_id;
 
-            
+            // Show toast if existing record was replaced
+            if (uploadResult.replaced_existing) {
+              showToast("Previous analysis replaced with new data");
+            }
 
             // Show success message
             const summary = uploadResult.summary;

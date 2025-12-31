@@ -8,7 +8,7 @@ import pandas as pd
 import tempfile
 import os
 from datetime import datetime, timedelta
-from spm_db import insert_run, insert_station_windows, insert_window_points
+from spm_db import insert_run, insert_station_windows, insert_window_points, find_existing_run, delete_run_cascade
 from corridor_loader import CorridorManager
 from psr_mps import PSRMPSCalculator, detect_violations, detect_overspeed_events, get_overspeed_summary
 from halt_detection import HaltDetector, calculate_cumulative_distance
@@ -792,6 +792,14 @@ async def upload_spm_file(
             "total_distance": float(df["Distance"].sum()),
         }
 
+        # Check for existing run with same date+train+from+to (upsert logic)
+        existing_run_id = find_existing_run(date_of_working, train_number, from_station, to_station)
+        replaced_existing = False
+        if existing_run_id:
+            print(f"[DEBUG DB] Found existing run {existing_run_id} for {date_of_working}/{train_number}/{from_station}-{to_station}, replacing...")
+            delete_run_cascade(existing_run_id)
+            replaced_existing = True
+
         insert_run(run_row)
 
         station_window_rows = []
@@ -914,6 +922,7 @@ async def upload_spm_file(
         return {
             "success": True,
             "run_id": run_id,
+            "replaced_existing": replaced_existing,
             "rows_processed": len(df),
             "motorman_name": motorman_name,
             "motorman_hq": motorman_hq,
