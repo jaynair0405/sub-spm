@@ -540,10 +540,26 @@ async def upload_spm_file(
                     # Step 2: Match halts using ISD pattern matching
                     # For FAST trains, get nominated halts from Fast Locals.csv
                     fast_train_halts = None
+                    semi_fast_info = None
+                    slow_corridor_data = None
                     if train_type == 'fast':
                         fast_train_halts = corridor_manager.get_train_halts(train_number)
                         if fast_train_halts:
                             print(f"[DEBUG] FAST train detected - using nominated halts: {fast_train_halts}")
+                            # Check if this is a semi-fast train (has slow-only markers)
+                            semi_fast_info = corridor_manager.detect_semi_fast(fast_train_halts)
+                            if semi_fast_info:
+                                print(f"[DEBUG] SEMI-FAST train detected!")
+                                print(f"[DEBUG]   Change point: {semi_fast_info['change_point']}")
+                                print(f"[DEBUG]   Slow markers found: {semi_fast_info['markers_found']}")
+                                # Load the corresponding slow corridor for ISD matching after change point
+                                slow_corridor_name = corridor_name.replace('_FAST', '_LOCAL') if corridor_name else None
+                                if slow_corridor_name:
+                                    slow_corridor_data = corridor_manager.corridors.get(slow_corridor_name)
+                                    if slow_corridor_data:
+                                        print(f"[DEBUG] SEMI-FAST: Loaded slow corridor {slow_corridor_name} with {len(slow_corridor_data.stations)} stations")
+                                    else:
+                                        print(f"[WARNING] SEMI-FAST: Slow corridor {slow_corridor_name} not found")
                         else:
                             print(f"[DEBUG] FAST train {train_number} not found in Fast Locals.csv, using corridor stations")
 
@@ -555,7 +571,9 @@ async def upload_spm_file(
                         to_station=to_station,
                         max_isd_diff=120.0,  # 150m ISD tolerance
                         max_cd_diff=300.0,   # 300m cumulative distance tolerance
-                        fast_train_halts=fast_train_halts
+                        fast_train_halts=fast_train_halts,
+                        slow_corridor_data=slow_corridor_data,
+                        semi_fast_info=semi_fast_info
                     )
 
                     # Extract halting stations and ordered stations from result
@@ -660,7 +678,8 @@ async def upload_spm_file(
                             psr_stations,  # Use all corridor stations, not just halting stations
                             adjusted_station_km_map,
                             halting_station_map,
-                            train_type
+                            train_type,
+                            semi_fast_info=semi_fast_info
                         )
 
                         print(f"[DEBUG] PSR calculation complete! Got {len(psr_values)} values")

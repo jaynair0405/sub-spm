@@ -102,6 +102,15 @@ class CorridorManager:
         "959",
     }
     TRANS_HARBOUR_PREFIXES = {"990", "992", "993", "994", "995"}
+
+    # Semi-fast train detection: slow-only markers and their change points
+    # If a fast train stops at these stations, it uses slow corridor from the change point
+    SLOW_MARKERS = {
+        'KOPR': 'TNA',  # If has KOPR, switch to slow at TNA
+        'THK': 'TNA',   # If has THK, switch to slow at TNA
+        'KJRD': 'GC',   # If has KJRD, switch to slow at GC
+        'NHU': 'GC',    # If has NHU, switch to slow at GC
+    }
     HARBOUR_PREFIXES = {
         "980",
         "981",
@@ -340,6 +349,51 @@ class CorridorManager:
 
     def get_train_halts(self, train_number: str) -> Optional[List[str]]:
         return self.fast_halt_map.get(self._normalize_train_number(train_number))
+
+    def detect_semi_fast(self, halt_list: List[str]) -> Optional[Dict[str, str]]:
+        """
+        Detect if a train is semi-fast based on its halt list.
+        Returns dict with change_point and direction info, or None if pure fast.
+
+        Semi-fast trains have slow-only markers (KOPR, THK, KJRD, NHU) in their halt list.
+        Once they switch to slow line, they stay on slow till end.
+        """
+        if not halt_list:
+            return None
+
+        halt_set = set(s.upper() for s in halt_list)
+        change_points = {}
+
+        for marker, change_point in self.SLOW_MARKERS.items():
+            if marker in halt_set:
+                # Found a slow marker - record the change point
+                if change_point not in change_points:
+                    change_points[change_point] = []
+                change_points[change_point].append(marker)
+
+        if not change_points:
+            return None  # Pure fast train
+
+        # Find the earliest change point in the halt list order
+        earliest_change_point = None
+        earliest_idx = len(halt_list)
+
+        for cp in change_points.keys():
+            if cp.upper() in [s.upper() for s in halt_list]:
+                try:
+                    idx = [s.upper() for s in halt_list].index(cp.upper())
+                    if idx < earliest_idx:
+                        earliest_idx = idx
+                        earliest_change_point = cp
+                except ValueError:
+                    continue
+
+        return {
+            'is_semi_fast': True,
+            'change_point': earliest_change_point,
+            'all_change_points': change_points,
+            'markers_found': [m for markers in change_points.values() for m in markers]
+        }
 
     def resolve_corridor(self, train_number: str, from_station: str, to_station: str) -> Dict[str, Optional[str]]:
         train_code = self.get_train_code(train_number)

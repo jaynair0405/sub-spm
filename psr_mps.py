@@ -305,7 +305,8 @@ class PSRMPSCalculator:
         halting_station_map: Dict[str, float],
         train_type: str,
         start_distance: float = None,
-        end_distance: float = None
+        end_distance: float = None,
+        semi_fast_info: Optional[Dict] = None
     ) -> List[int]:
         """
         Process entire SPM dataset and calculate PSR/MPS for each data point.
@@ -338,6 +339,15 @@ class PSRMPSCalculator:
         # Load segment limits
         segment_limits = self.load_segment_limits(train_type)
 
+        # For semi-fast trains, also load slow segments as fallback
+        fallback_segment_limits = None
+        if semi_fast_info and train_type == 'fast':
+            try:
+                fallback_segment_limits = self.load_segment_limits('slow')
+                print(f"[DEBUG PSR] SEMI-FAST: Loaded slow segments as fallback ({len(fallback_segment_limits)} segments)")
+            except Exception as e:
+                print(f"[DEBUG PSR] Could not load slow segments fallback: {e}")
+
         # Get start and end distances
         if start_distance is None:
             start_distance = spm_data[0].get('cumulative_distance', 0)
@@ -361,6 +371,7 @@ class PSRMPSCalculator:
         # Debug: Track unique segments and their limits
         segments_found = {}
         debug_segments = set()
+        fallback_used = set()  # Track segments that used fallback
 
         for i, row in enumerate(spm_data):
             cum_dist = row.get('cumulative_distance', 0)
@@ -372,13 +383,22 @@ class PSRMPSCalculator:
             if position:
                 speed_limit = self.get_speed_limit(position, segment_limits, debug_segments)
 
+                # For semi-fast trains, try fallback if primary doesn't have the segment
+                if speed_limit is None and fallback_segment_limits:
+                    speed_limit = self.get_speed_limit(position, fallback_segment_limits, debug_segments)
+                    if speed_limit is not None:
+                        seg_name = position.get('segment')
+                        if seg_name not in fallback_used:
+                            fallback_used.add(seg_name)
+
                 # Debug: Log first occurrence of each segment
                 seg_name = position.get('segment')
                 if seg_name not in segments_found:
                     segments_found[seg_name] = {
                         'first_index': i,
                         'percentage': position.get('percentage'),
-                        'limit': speed_limit
+                        'limit': speed_limit,
+                        'used_fallback': seg_name in fallback_used
                     }
             else:
                 speed_limit = None
@@ -387,6 +407,8 @@ class PSRMPSCalculator:
 
         # Debug: Print segment summary
         print(f"[DEBUG PSR] Found {len(segments_found)} unique segments, {len(debug_segments)} with variable limits")
+        if fallback_used:
+            print(f"[DEBUG PSR] SEMI-FAST: Used slow segment fallback for: {', '.join(fallback_used)}")
 
         return psr_values
 

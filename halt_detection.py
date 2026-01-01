@@ -153,7 +153,9 @@ class HaltDetector:
         to_station: Optional[str] = None,
         max_isd_diff: float = 100.0,
         max_cd_diff: float = 300.0,
-        fast_train_halts: Optional[List[str]] = None
+        fast_train_halts: Optional[List[str]] = None,
+        slow_corridor_data: Optional['CorridorData'] = None,
+        semi_fast_info: Optional[Dict] = None
     ) -> Dict[str, float]:
         """
         Match halts to stations using ISD (Inter-Station Distance) pattern matching.
@@ -168,6 +170,9 @@ class HaltDetector:
             to_station: Optional ending station (for validation)
             max_isd_diff: Maximum ISD difference tolerance (meters) - default 100m
             max_cd_diff: Maximum cumulative distance difference (meters) - default 300m
+            fast_train_halts: Optional list of stations for fast trains
+            slow_corridor_data: Optional slow corridor for semi-fast trains
+            semi_fast_info: Optional dict with change_point for semi-fast switching
 
         Returns:
             Dict of {station_name: actual_cumulative_distance}
@@ -200,6 +205,17 @@ class HaltDetector:
         # Use first record for cumulative distances (station positions)
         corridor_cumulative = all_records[0].cumulative_distances
         print(f"[DEBUG ISD] Loaded {len(all_records)} corridor records for ISD matching")
+
+        # Setup slow corridor data for semi-fast trains
+        slow_all_stations = None
+        slow_all_records = None
+        change_point = None
+        if slow_corridor_data and semi_fast_info and semi_fast_info.get('change_point'):
+            slow_all_stations = slow_corridor_data.stations
+            slow_all_records = slow_corridor_data.records
+            change_point = semi_fast_info['change_point'].upper()
+            print(f"[DEBUG ISD] SEMI-FAST: Using slow corridor after {change_point}")
+            print(f"[DEBUG ISD] SEMI-FAST: Slow corridor has {len(slow_all_stations)} stations, {len(slow_all_records)} records")
 
         # Calculate ISDs from SPM halts
         halt_cumulative = [h['cumulative_distance'] for h in halts]
@@ -376,13 +392,37 @@ class HaltDetector:
         current_station_idx = 0  # Index in ordered_stations (0 = start_station)
         FORWARD_WINDOW = 200.0  # Look ahead 200m for better matches
 
+        # Helper function to check if we're past change point (for semi-fast trains)
+        def is_after_change_point(station_name: str) -> bool:
+            if not change_point or not slow_all_stations:
+                return False
+            # Find change point in ordered_stations
+            try:
+                cp_idx = [s.upper() for s in ordered_stations].index(change_point)
+                stn_idx = [s.upper() for s in ordered_stations].index(station_name.upper())
+                return stn_idx >= cp_idx
+            except ValueError:
+                return False
+
         # Helper function to calculate expected ISD for a candidate station
         # Returns list of all valid (expected_isd, record_idx) pairs for best-match searching
         def get_all_expected_isds_for_station(from_station_idx: int, to_station_idx: int) -> list:
             """Returns list of (expected_isd, record_idx) tuples for all valid records"""
             valid_isds = []
 
-            for record_idx, record in enumerate(all_records):
+            # Determine which corridor to use for this segment
+            # For semi-fast trains, use slow corridor after change_point
+            station_to_check = ordered_stations[to_station_idx] if to_station_idx < len(ordered_stations) else ordered_stations[-1]
+            use_slow = is_after_change_point(station_to_check)
+
+            active_stations = slow_all_stations if use_slow else all_stations
+            active_records = slow_all_records if use_slow else all_records
+
+            if use_slow and slow_all_records:
+                # Debug: only log once per segment type
+                pass  # Will log in main loop if needed
+
+            for record_idx, record in enumerate(active_records):
                 corridor_isds = record.inter_station_distances
                 expected_isd = 0.0
                 valid_record = True
@@ -391,8 +431,27 @@ class HaltDetector:
                     for i in range(from_station_idx, to_station_idx):
                         station_from = ordered_stations[i]
                         station_to = ordered_stations[i + 1]
-                        idx_from = all_stations.index(station_from)
-                        idx_to = all_stations.index(station_to)
+
+                        # Look up indices in the active corridor
+                        try:
+                            idx_from = active_stations.index(station_from)
+                            idx_to = active_stations.index(station_to)
+                        except ValueError:
+                            # Station not in this corridor - try the other one
+                            alt_stations = all_stations if use_slow else slow_all_stations
+                            alt_records = all_records if use_slow else slow_all_records
+                            if alt_stations and alt_records:
+                                try:
+                                    idx_from = alt_stations.index(station_from)
+                                    idx_to = alt_stations.index(station_to)
+                                    # Use alt corridor's ISDs for this segment
+                                    corridor_isds = alt_records[min(record_idx, len(alt_records)-1)].inter_station_distances
+                                except ValueError:
+                                    valid_record = False
+                                    break
+                            else:
+                                valid_record = False
+                                break
 
                         if direction == "forward":
                             isd_value = corridor_isds[idx_to] if idx_to < len(corridor_isds) else 0
