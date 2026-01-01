@@ -920,7 +920,7 @@
     ]
   },
   {
-    "segment": "MLND-NHR",
+    "segment": "MLND-NHU",
     "limits": [
       {
         "startPct": 0.0,
@@ -930,7 +930,7 @@
     ]
   },
   {
-    "segment": "NHR-BND",
+    "segment": "NHU-BND",
     "limits": [
       {
         "startPct": 0.0,
@@ -940,7 +940,7 @@
     ]
   },
   {
-    "segment": "BND-KJMG",
+    "segment": "BND-KJRD",
     "limits": [
       {
         "startPct": 0.0,
@@ -950,7 +950,7 @@
     ]
   },
   {
-    "segment": "KJMG-VK",
+    "segment": "KJRD-VK",
     "limits": [
       {
         "startPct": 0.0,
@@ -1260,7 +1260,7 @@
     ]
   },
   {
-    "segment": "VK-KJMG",
+    "segment": "VK-KJRD",
     "limits": [
       {
         "startPct": 0.0,
@@ -1270,7 +1270,7 @@
     ]
   },
   {
-    "segment": "KJMG-BND",
+    "segment": "KJRD-BND",
     "limits": [
       {
         "startPct": 0.0,
@@ -1280,7 +1280,7 @@
     ]
   },
   {
-    "segment": "BND-NHR",
+    "segment": "BND-NHU",
     "limits": [
       {
         "startPct": 0.0,
@@ -1295,7 +1295,7 @@
     ]
   },
   {
-    "segment": "NHR-MLND",
+    "segment": "NHU-MLND",
     "limits": [
       {
         "startPct": 0.0,

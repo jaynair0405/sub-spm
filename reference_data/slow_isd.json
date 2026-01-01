@@ -164,24 +164,24 @@
     "station": "TNA",
     "platform_length_km": 0.266
   },
-  "MLND-NHR": {
-    "section": "MLND-NHR",
+  "MLND-NHU": {
+    "section": "MLND-NHU",
     "station": "MLND",
     "platform_length_km": 0.288
   },
-  "NHR-BND": {
-    "section": "NHR-BND",
-    "station": "NHR",
+  "NHU-BND": {
+    "section": "NHU-BND",
+    "station": "NHU",
     "platform_length_km": 0.271
   },
-  "BND-KJMG": {
-    "section": "BND-KJMG",
+  "BND-KJRD": {
+    "section": "BND-KJRD",
     "station": "BND",
     "platform_length_km": 0.272
   },
-  "KJMG-VK": {
-    "section": "KJMG-VK",
-    "station": "KJMG",
+  "KJRD-VK": {
+    "section": "KJRD-VK",
+    "station": "KJRD",
     "platform_length_km": 0.274
   },
   "VK-GC": {
@@ -504,24 +504,24 @@
     "station": "GC",
     "platform_length_km": 0.277
   },
-  "VK-KJMG": {
-    "section": "VK-KJMG",
+  "VK-KJRD": {
+    "section": "VK-KJRD",
     "station": "VK",
     "platform_length_km": 0.266
   },
-  "KJMG-BND": {
-    "section": "KJMG-BND",
-    "station": "KJMG",
+  "KJRD-BND": {
+    "section": "KJRD-BND",
+    "station": "KJRD",
     "platform_length_km": 0.274
   },
-  "BND-NHR": {
-    "section": "BND-NHR",
+  "BND-NHU": {
+    "section": "BND-NHU",
     "station": "BND",
     "platform_length_km": 0.271
   },
-  "NHR-MLND": {
-    "section": "NHR-MLND",
-    "station": "NHR",
+  "NHU-MLND": {
+    "section": "NHU-MLND",
+    "station": "NHU",
     "platform_length_km": 0.267
   },
   "MLND-TNA": {
