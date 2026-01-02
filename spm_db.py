@@ -307,7 +307,7 @@ def delete_run_cascade(run_id: str) -> bool:
         # Delete in order: child tables first, then parent
         cur.execute("DELETE FROM div_sub_spm_window_points WHERE run_id = %s", (run_id,))
         cur.execute("DELETE FROM div_sub_spm_station_windows WHERE run_id = %s", (run_id,))
-        cur.execute("DELETE FROM div_sub_spm_points WHERE run_id = %s", (run_id,))
+        # Note: div_sub_spm_points not used (raw data not stored)
         cur.execute("DELETE FROM div_sub_spm_runs WHERE run_id = %s", (run_id,))
 
         deleted = cur.rowcount > 0
