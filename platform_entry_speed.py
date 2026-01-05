@@ -383,11 +383,11 @@ class PlatformEntryCalculator:
             entry_distance_raw = max(halt_distance - platform_length_in_data_units, 0.0)
 
             # Calculate additional measurement points
-            # Mid-platform: 126m from halt (approximate mid-point of platform)
-            mid_platform_distance_raw = max(halt_distance - (126.0 if use_meter_scale else 0.126), 0.0)
+            # Mid-platform: 130m from halt (approximate mid-point of platform)
+            mid_platform_distance_raw = max(halt_distance - (130.0 if use_meter_scale else 0.130), 0.0)
 
-            # One coach: 17m from halt (length of one coach)
-            one_coach_distance_raw = max(halt_distance - (17.0 if use_meter_scale else 0.017), 0.0)
+            # One coach: 20m from halt (length of one coach)
+            one_coach_distance_raw = max(halt_distance - (20.0 if use_meter_scale else 0.020), 0.0)
 
             # Find speeds at all three points
             entry_speed, entry_sample_distance = self.find_speed_at_distance(
@@ -417,8 +417,8 @@ class PlatformEntryCalculator:
                 'platform_length_km': platform_length,
                 'entry_distance': entry_distance_km,
                 'entry_speed': entry_speed,
-                'mid_platform_speed': mid_platform_speed,  # Speed at 126m from halt
-                'one_coach_speed': one_coach_speed,        # Speed at 17m from halt
+                'mid_platform_speed': mid_platform_speed,  # Speed at 130m from halt
+                'one_coach_speed': one_coach_speed,        # Speed at 20m from halt
                 'section': station_section,
                 'entry_gap_m': entry_gap_m,
                 'mid_gap_m': mid_gap_m,
@@ -429,8 +429,8 @@ class PlatformEntryCalculator:
             one_coach_str = f"{one_coach_speed:.1f}" if one_coach_speed is not None else "N/A"
             print(f"[DEBUG ISD] {station} ({station_section}): "
                   f"PF Entry={entry_speed:.1f}km/h, "
-                  f"Mid PF(126m)={mid_pf_str}km/h, "
-                  f"1 Coach(17m)={one_coach_str}km/h "
+                  f"Mid PF(130m)={mid_pf_str}km/h, "
+                  f"1 Coach(20m)={one_coach_str}km/h "
                   f"[halt={halt_distance_km:.3f}km, platform={platform_length:.3f}km]")
 
         return entry_speeds

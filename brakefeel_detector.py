@@ -23,17 +23,28 @@ class BrakeFeelTest:
 
 
 class BrakeFeelDetector:
-    """Detects brake feel tests based on speed/time profiles."""
+    """
+    Detects brake feel tests based on speed/time profiles.
+
+    Simplified approach:
+    - Looks for speed in valid range (15-40 kmph)
+    - Detects significant speed drop (>= 5 kmph)
+    - Confirms recovery after braking
+
+    No acceleration phase required - handles BFT from any cruising speed.
+    """
 
     def __init__(
         self,
-        min_speed_for_test: float = 20.0,
-        min_speed_drop: float = 8.0,
+        min_speed_for_test: float = 15.0,
+        max_speed_for_test: float = 40.0,
+        min_speed_drop: float = 5.0,
         max_speed_variation: float = 3.0,
         stabilization_period: float = 5.0,
         braking_noise_tolerance: int = 3,
     ) -> None:
         self.min_speed_for_test = min_speed_for_test
+        self.max_speed_for_test = max_speed_for_test
         self.min_speed_drop = min_speed_drop
         self.max_speed_variation = max_speed_variation
         self.stabilization_period = stabilization_period
@@ -66,50 +77,145 @@ class BrakeFeelDetector:
             return []
 
         tests: List[BrakeFeelTest] = []
-        i = 0
         speeds_clean = cleaned["speeds"]
         times_clean = cleaned["times"]
         original_idx = cleaned["indices"]
 
-        while i < len(speeds_clean) - 30:
-            accel = self._find_acceleration_phase(speeds_clean, i)
-            if not accel or accel.end_speed < self.min_speed_for_test:
+        # Scan for BFT pattern: find where speed drops significantly within a short window
+        # BFT characteristics:
+        # 1. Speed is in valid range (15-40 kmph) before braking
+        # 2. Rapid drop of >= 5 kmph within ~15 seconds
+        # 3. Recovery after the drop
+
+        i = 0
+        while i < len(speeds_clean) - 20:
+            current_speed = speeds_clean[i]
+
+            # Skip if speed not in valid range
+            if current_speed < self.min_speed_for_test:
                 i += 1
                 continue
 
-            i = accel.end_index
-            braking = self._find_braking_phase(speeds_clean, i)
-            if not braking:
-                i = accel.end_index + 10
+            # Skip if speed exceeds max (BFT should happen before 41 kmph)
+            if current_speed > self.max_speed_for_test:
+                i += 1
                 continue
 
-            recovery = self._find_recovery_phase(speeds_clean, braking.end_index, braking.end_speed)
+            # Look ahead for a rapid speed drop pattern
+            # Follow the rising trend until speed actually starts dropping (find true peak)
+            peak_speed = current_speed
+            peak_index = i
+            exceeded_max = False
+            found_peak = False
+
+            # Follow speed until it stops rising (no artificial limit - follow until drop detected)
+            for j in range(i, len(speeds_clean) - 15):  # Need 15 samples after for braking check
+                if speeds_clean[j] > self.max_speed_for_test:
+                    # Speed exceeded max limit - BFT should have happened before this
+                    exceeded_max = True
+                    break
+                if speeds_clean[j] > peak_speed:
+                    peak_speed = speeds_clean[j]
+                    peak_index = j
+                elif speeds_clean[j] < peak_speed - 2:
+                    # Speed dropped by more than 2 kmph from peak, we found the peak
+                    found_peak = True
+                    break
+
+            # Skip if speed exceeded max (BFT didn't happen in time)
+            if exceeded_max:
+                i += 1
+                continue
+
+            # Skip if no clear peak found (still rising at end of data)
+            if not found_peak:
+                i += 1
+                continue
+
+            # Now look for rapid braking from peak (within 15 seconds)
+            braking_window = 15
+            lowest_speed = peak_speed
+            lowest_index = peak_index
+
+            for j in range(peak_index, min(peak_index + braking_window, len(speeds_clean))):
+                if speeds_clean[j] < lowest_speed:
+                    lowest_speed = speeds_clean[j]
+                    lowest_index = j
+
+            speed_drop = peak_speed - lowest_speed
+
+            # Check if this is a valid BFT drop
+            if speed_drop < self.min_speed_drop:
+                i += 1
+                continue
+
+            # Verify it's a real braking event (not just noise)
+            # Check that drop happened continuously, not scattered
+            drop_duration = lowest_index - peak_index
+            if drop_duration < 3:  # Too fast, might be noise
+                i += 1
+                continue
+
+            # Look for recovery after braking OR train came to halt
+            recovery = self._find_recovery_phase(speeds_clean, lowest_index, lowest_speed)
+
+            # Check if train came to halt (speed = 0) after braking
+            came_to_halt = False
+            halt_index = lowest_index
             if not recovery:
-                i = braking.end_index
+                # Look for halt within a few samples after lowest point
+                for j in range(lowest_index, min(lowest_index + 10, len(speeds_clean))):
+                    if speeds_clean[j] == 0:
+                        came_to_halt = True
+                        halt_index = j
+                        break
+
+            # Valid BFT if either recovery or halt
+            if not recovery and not came_to_halt:
+                i = lowest_index + 1
                 continue
 
-            start_idx = original_idx[accel.start_index]
-            end_idx = original_idx[recovery.end_index]
+            # Find the start of this BFT sequence
+            start_index = peak_index
+            for j in range(peak_index - 1, max(-1, peak_index - 30), -1):
+                if speeds_clean[j] < speeds_clean[start_index]:
+                    start_index = j
+                if speeds_clean[j] <= 0:
+                    break
+
+            start_idx = original_idx[start_index]
+
+            # End index and recovery speed depend on whether recovery or halt
+            if recovery:
+                end_idx_final = original_idx[recovery.end_index]
+                recovery_speed = recovery.end_speed
+                duration = times_clean[recovery.end_index] - times_clean[start_index]
+            else:
+                # Came to halt
+                end_idx_final = original_idx[halt_index]
+                recovery_speed = 0.0
+                duration = times_clean[halt_index] - times_clean[start_index]
 
             tests.append(
                 BrakeFeelTest(
                     start_index=start_idx,
-                    end_index=end_idx,
-                    max_speed_index=original_idx[accel.end_index],
-                    braking_start_index=original_idx[braking.start_index],
-                    lowest_speed_index=original_idx[braking.end_index],
-                    recovery_index=end_idx,
-                    start_speed=accel.start_speed,
-                    max_speed=accel.end_speed,
-                    braking_start_speed=braking.start_speed,
-                    lowest_speed=braking.end_speed,
-                    recovery_speed=recovery.end_speed,
-                    speed_drop=braking.start_speed - braking.end_speed,
-                    duration=times_clean[recovery.end_index] - times_clean[accel.start_index],
+                    end_index=end_idx_final,
+                    max_speed_index=original_idx[peak_index],
+                    braking_start_index=original_idx[peak_index],
+                    lowest_speed_index=original_idx[lowest_index],
+                    recovery_index=end_idx_final,
+                    start_speed=speeds_clean[start_index],
+                    max_speed=peak_speed,
+                    braking_start_speed=peak_speed,
+                    lowest_speed=lowest_speed,
+                    recovery_speed=recovery_speed,
+                    speed_drop=speed_drop,
+                    duration=duration,
                 )
             )
 
-            i = recovery.end_index
+            # Only detect first BFT
+            break
 
         return tests
 

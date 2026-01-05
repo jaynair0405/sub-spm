@@ -7,6 +7,7 @@ import polars as pl
 import pandas as pd
 import tempfile
 import os
+import uuid
 from datetime import datetime, timedelta
 from spm_db import insert_run, insert_station_windows, insert_window_points, find_existing_run, delete_run_cascade
 from corridor_loader import CorridorManager
@@ -15,7 +16,7 @@ from halt_detection import HaltDetector, calculate_cumulative_distance
 from platform_entry_speed import PlatformEntryCalculator
 from brakefeel_detector import BrakeFeelDetector
 from station_km_maps import get_station_km_map_for_train_type
-from spm_db import get_run, get_points, list_runs, get_staff_list, get_cli_list, get_staff_by_hrms, get_cli_by_cms_id
+from spm_db import get_run, get_points, list_runs, get_runs_by_date, get_staff_list, get_cli_list, get_staff_by_hrms, get_cli_by_cms_id
 
 # app = FastAPI(title="SPM Analysis API")
 ROOT_PATH = os.getenv("ROOT_PATH", "")
@@ -104,17 +105,17 @@ def generate_abnormality_text(
     if pf_entry_violations:
         remarks.append(f"PF ENTRY SPEED MORE THAN 40 KMPH AT {','.join(pf_entry_violations)}")
 
-    # 3. Mid Platform Speed > 25 kmph (at 126m from halt)
+    # 3. Mid Platform Speed > 29 kmph (at 130m from halt)
     mid_pf_violations = []
     for station, data in platform_entry_data.items():
         mid_pf = data.get('mid_platform_speed')
-        if mid_pf and mid_pf > 25:
+        if mid_pf and mid_pf > 29:
             mid_pf_violations.append(f"{station}-{int(mid_pf)}")
     if mid_pf_violations:
         if len(mid_pf_violations) > 5:
-            remarks.append("MID PF SPEED MORE THAN 25 KMPH AT MANY STN")
+            remarks.append("MID PF SPEED MORE THAN 29 KMPH AT MANY STN")
         else:
-            remarks.append(f"MID PF SPEED MORE THAN 25 KMPH AT {','.join(mid_pf_violations)}")
+            remarks.append(f"MID PF SPEED MORE THAN 29 KMPH AT {','.join(mid_pf_violations)}")
 
     # 4. One Coach Before Speed > 10 kmph
     one_coach_violations = []
@@ -768,8 +769,8 @@ async def upload_spm_file(
         )
         print(f"[DEBUG] Abnormality: {abnormality_text[:100]}...")
 
-        # Generate run ID
-        run_id = f"RUN_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+        # Generate run ID with UUID to prevent collisions when multiple users upload simultaneously
+        run_id = f"RUN_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:8]}"
 
         # Store run data
         runs_storage[run_id] = {
@@ -1015,6 +1016,7 @@ async def export_daily_csv(date: Optional[str] = None):
     """
     Export daily SPM analysis summary as CSV.
     Format matches the manual daily analysis spreadsheet.
+    Data is fetched from database (persists across server restarts).
 
     Args:
         date: Date in YYYY-MM-DD format (default: today)
@@ -1027,15 +1029,8 @@ async def export_daily_csv(date: Optional[str] = None):
     if not date:
         date = datetime.now().strftime("%Y-%m-%d")
 
-    # Filter runs by analysis date (uploaded_at)
-    daily_runs = []
-    for run_id, data in runs_storage.items():
-        uploaded_at = data.get("uploaded_at", "")
-        if uploaded_at.startswith(date):
-            daily_runs.append(data)
-
-    # Sort by upload time
-    daily_runs.sort(key=lambda x: x.get("uploaded_at", ""))
+    # Get runs from database (with joined staff/CLI names)
+    daily_runs = get_runs_by_date(date)
 
     # Create CSV in memory
     output = io.StringIO()
@@ -1060,40 +1055,46 @@ async def export_daily_csv(date: Optional[str] = None):
     # Write data rows
     for idx, run in enumerate(daily_runs, 1):
         # Format analysis date
-        uploaded_at = run.get("uploaded_at", "")
-        if uploaded_at:
+        analysis_dt = run.get("analysis_date")
+        if analysis_dt:
             try:
-                dt_obj = datetime.fromisoformat(uploaded_at.replace("Z", "+00:00"))
-                analysis_date = dt_obj.strftime("%d-%m-%Y")
+                analysis_date = analysis_dt.strftime("%d-%m-%Y")
             except:
-                analysis_date = uploaded_at[:10]
+                analysis_date = str(analysis_dt)[:10]
         else:
             analysis_date = ""
 
         # Format date of working
-        dow = run.get("date_of_working", "")
+        dow = run.get("date_of_working")
         if dow:
             try:
-                dt_obj = datetime.strptime(dow, "%Y-%m-%d")
-                dow_formatted = dt_obj.strftime("%d-%m-%Y")
+                dow_formatted = dow.strftime("%d-%m-%Y")
             except:
-                dow_formatted = dow
+                try:
+                    dt_obj = datetime.strptime(str(dow), "%Y-%m-%d")
+                    dow_formatted = dt_obj.strftime("%d-%m-%Y")
+                except:
+                    dow_formatted = str(dow)
         else:
             dow_formatted = ""
+
+        # Extract HQ from motorman_cms_id
+        motorman_cms_id = run.get("motorman_cms_id") or ""
+        motorman_hq = extract_hq_from_cms_id(motorman_cms_id)
 
         writer.writerow([
             "",  # Row number placeholder
             analysis_date,
             dow_formatted,
             run.get("train_number", ""),
-            run.get("unit_number", ""),
+            run.get("unit_no", ""),  # DB column is unit_no
             run.get("from_station", ""),
             run.get("to_station", ""),
             run.get("motorman_name", ""),
-            run.get("motorman_hq", ""),
+            motorman_hq,
             run.get("nominated_cli_name", ""),
-            run.get("analysed_by_name", "") or run.get("analysed_by", ""),
-            run.get("abnormality_text", "NO ABNORMALITY")
+            run.get("done_by_cli_name", "") or run.get("done_by_cli_cms_id", ""),
+            run.get("abnormality_noticed", "NO ABNORMALITY")  # DB column is abnormality_noticed
         ])
 
     # Prepare response

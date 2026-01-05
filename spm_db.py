@@ -179,6 +179,43 @@ def list_runs(limit: int = 50):
         cn.close()
 
 
+def get_runs_by_date(date_str: str) -> List[Dict[str, Any]]:
+    """
+    Get all runs for a specific analysis date with joined staff/CLI names.
+
+    Args:
+        date_str: Date in YYYY-MM-DD format
+
+    Returns:
+        List of run records with motorman_name, nominated_cli_name, done_by_cli_name
+    """
+    cn = get_db_connection()
+    try:
+        cur = cn.cursor(dictionary=True)
+        cur.execute(
+            """
+            SELECT
+                r.*,
+                s.name as motorman_name,
+                r.motorman_cms_id,
+                nc.cli_name as nominated_cli_name,
+                dc.cli_name as done_by_cli_name
+            FROM div_sub_spm_runs r
+            LEFT JOIN div_staff_master s ON r.motorman_hrms_id = s.hrms_id
+            LEFT JOIN div_cli_master nc ON r.nom_cli_cms_id = nc.cmsid
+            LEFT JOIN div_cli_master dc ON r.done_by_cli_cms_id = dc.cmsid
+            WHERE DATE(r.analysis_date) = %s
+            ORDER BY r.analysis_date ASC
+            """,
+            (date_str,),
+        )
+        rows = cur.fetchall()
+        cur.close()
+        return rows
+    finally:
+        cn.close()
+
+
 def get_staff_list(designation_id: int = 8) -> List[Dict[str, Any]]:
     """
     Get list of staff (motormen) from div_staff_master.

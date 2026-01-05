@@ -389,7 +389,11 @@ class HaltDetector:
 
         # Match subsequent halts using ISD pattern with forward-looking best-match
         # When a halt matches, look forward 200m for potentially better matches (smaller ISD diff)
-        current_station_idx = 0  # Index in ordered_stations (0 = start_station)
+        # Find actual index of start_station in ordered_stations (not always 0 for partial journeys)
+        try:
+            current_station_idx = ordered_stations.index(start_station)
+        except ValueError:
+            current_station_idx = 0  # Fallback to first station if not found
         FORWARD_WINDOW = 200.0  # Look ahead 200m for better matches
 
         # Helper function to check if we're past change point (for semi-fast trains)
@@ -407,7 +411,17 @@ class HaltDetector:
         # Helper function to calculate expected ISD for a candidate station
         # Returns list of all valid (expected_isd, record_idx) pairs for best-match searching
         def get_all_expected_isds_for_station(from_station_idx: int, to_station_idx: int) -> list:
-            """Returns list of (expected_isd, record_idx) tuples for all valid records"""
+            """
+            Returns list of (expected_isd, record_idx) tuples for all valid records.
+
+            For fast trains that skip intermediate stations, we sum ALL corridor ISDs
+            between from_station and to_station, not just the halt pattern stations.
+
+            Example: BL45 halts at GC→TNA (skipping VK, BND, MLND)
+            - Corridor: [..., GC, VK, BND, MLND, TNA, ...]
+            - We sum: VK_isd + BND_isd + MLND_isd + TNA_isd
+            - Only use records where from_station (GC) has a valid ISD value
+            """
             valid_isds = []
 
             # Determine which corridor to use for this segment
@@ -422,46 +436,60 @@ class HaltDetector:
                 # Debug: only log once per segment type
                 pass  # Will log in main loop if needed
 
+            # Get station names from halt pattern
+            from_station = ordered_stations[from_station_idx]
+            to_station = ordered_stations[to_station_idx]
+
+            # Get their indices in the CORRIDOR (all stations, not just halts)
+            try:
+                corridor_idx_from = active_stations.index(from_station)
+                corridor_idx_to = active_stations.index(to_station)
+            except ValueError:
+                # Station not in this corridor - try the other one
+                alt_stations = all_stations if use_slow else slow_all_stations
+                if alt_stations:
+                    try:
+                        corridor_idx_from = alt_stations.index(from_station)
+                        corridor_idx_to = alt_stations.index(to_station)
+                        active_stations = alt_stations
+                        active_records = all_records if use_slow else slow_all_records
+                    except ValueError:
+                        return valid_isds  # Cannot find stations in any corridor
+                else:
+                    return valid_isds
+
             for record_idx, record in enumerate(active_records):
                 corridor_isds = record.inter_station_distances
                 expected_isd = 0.0
                 valid_record = True
 
                 try:
-                    for i in range(from_station_idx, to_station_idx):
-                        station_from = ordered_stations[i]
-                        station_to = ordered_stations[i + 1]
-
-                        # Look up indices in the active corridor
-                        try:
-                            idx_from = active_stations.index(station_from)
-                            idx_to = active_stations.index(station_to)
-                        except ValueError:
-                            # Station not in this corridor - try the other one
-                            alt_stations = all_stations if use_slow else slow_all_stations
-                            alt_records = all_records if use_slow else slow_all_records
-                            if alt_stations and alt_records:
-                                try:
-                                    idx_from = alt_stations.index(station_from)
-                                    idx_to = alt_stations.index(station_to)
-                                    # Use alt corridor's ISDs for this segment
-                                    corridor_isds = alt_records[min(record_idx, len(alt_records)-1)].inter_station_distances
-                                except ValueError:
-                                    valid_record = False
-                                    break
-                            else:
-                                valid_record = False
-                                break
-
-                        if direction == "forward":
-                            isd_value = corridor_isds[idx_to] if idx_to < len(corridor_isds) else 0
-                        else:
-                            isd_value = corridor_isds[idx_from] if idx_from < len(corridor_isds) else 0
-
-                        if isd_value == 0 or isd_value is None:
+                    # CHECK 1: Starting station must have a valid ISD in this record
+                    # If from_station's ISD is 0/empty, this record is for a train that skipped it
+                    from_station_isd = corridor_isds[corridor_idx_from] if corridor_idx_from < len(corridor_isds) else 0
+                    if not from_station_isd or from_station_isd == 0:
+                        # Exception: CSMT (first station) always has ISD=0, which is valid
+                        if from_station.upper() != "CSMT" and corridor_idx_from != 0:
                             valid_record = False
-                            break
-                        expected_isd += isd_value
+                            continue
+
+                    # CHECK 2: Sum ALL corridor ISDs between from_station and to_station
+                    # This includes all intermediate stations (even ones the train skips)
+                    if direction == "forward":
+                        # Forward: sum from (corridor_idx_from + 1) to corridor_idx_to (inclusive)
+                        for idx in range(corridor_idx_from + 1, corridor_idx_to + 1):
+                            if idx < len(corridor_isds):
+                                isd_value = corridor_isds[idx]
+                                if isd_value and isd_value > 0:
+                                    expected_isd += isd_value
+                    else:
+                        # Reverse: sum from corridor_idx_to to (corridor_idx_from - 1) (inclusive)
+                        for idx in range(corridor_idx_to, corridor_idx_from):
+                            if idx < len(corridor_isds):
+                                isd_value = corridor_isds[idx]
+                                if isd_value and isd_value > 0:
+                                    expected_isd += isd_value
+
                 except (ValueError, IndexError):
                     valid_record = False
 

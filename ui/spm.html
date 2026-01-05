@@ -970,7 +970,7 @@
           if (marker.platform_entry_speed > 40) {
             pfEntries.push(`${marker.station} · ${marker.platform_entry_speed} km/h`);
           }
-          if (marker.mid_platform_speed > 25) {
+          if (marker.mid_platform_speed > 29) {
             midEntries.push(`${marker.station} · ${marker.mid_platform_speed} km/h`);
           }
           if (marker.one_coach_speed > 10) {
@@ -1412,8 +1412,8 @@
               width: 1
             },
             data: [
-              { xAxis: 126, name: '126m' },
-              { xAxis: 17, name: '17m' }
+              { xAxis: 130, name: '130m' },
+              { xAxis: 20, name: '20m' }
             ]
           };
 
@@ -1473,8 +1473,8 @@
                 fontSize: 9,
                 formatter: function(value) {
                   if (value === 0) return 'Halt';
-                  if (value === 17) return '17m';
-                  if (value === 126) return '126m';
+                  if (value === 20) return '20m';
+                  if (value === 130) return '130m';
                   return value + 'm';
                 }
               }
