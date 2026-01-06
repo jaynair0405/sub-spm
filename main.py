@@ -1,4 +1,4 @@
-from fastapi import FastAPI, File, UploadFile, HTTPException, Form
+from fastapi import FastAPI, File, UploadFile, HTTPException, Form, Body
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pathlib import Path
@@ -1119,17 +1119,20 @@ async def get_run(run_id: str):
 
 @app.post("/chart_data")
 async def get_chart_data(
-    run_id: Optional[str] = None,
-    from_station_equals: Optional[str] = None,
-    to_station_equals: Optional[str] = None,
+    run_id: Optional[str] = Body(None),
+    from_station_equals: Optional[str] = Body(None),
+    to_station_equals: Optional[str] = Body(None),
 ):
     """
     Get chart data for visualization
     If run_id is provided, return that specific run
     Otherwise return the latest run matching the criteria
     """
+    if not run_id:
+        raise HTTPException(status_code=400, detail="run_id is required")
+
     # 1) If run_id is provided, try RAM first, then DB
-    if run_id:
+    else:
         if run_id in runs_storage:
             run_data = runs_storage[run_id]
         else:
@@ -1154,62 +1157,6 @@ async def get_chart_data(
                 "train_type": None,
                 "notes": meta.get("abnormality_noticed"),
                 "uploaded_at": meta.get("analysis_date").isoformat() if meta.get("analysis_date") else "",
-                "halting_stations": {},
-                "ordered_stations": [],
-                "violations": [],
-                "violation_count": 0,
-                "first_halt_index": None,
-                "data": points,
-            }
-
-    # 2) If run_id is NOT provided, get latest from RAM, else latest from DB
-    else:
-        if runs_storage:
-            matching_runs = [
-                data for data in runs_storage.values()
-                if (not from_station_equals or data.get("from_station") == from_station_equals)
-                and (not to_station_equals or data.get("to_station") == to_station_equals)
-            ]
-            if matching_runs:
-                run_data = max(matching_runs, key=lambda x: x["uploaded_at"])
-            else:
-                run_data = None
-        else:
-            run_data = None
-
-        # Fallback to DB latest if RAM has nothing
-        if not run_data:
-            db_runs = list_runs(limit=200)  # returns latest by analysis_date
-            if from_station_equals:
-                db_runs = [r for r in db_runs if r.get("from_station") == from_station_equals]
-            if to_station_equals:
-                db_runs = [r for r in db_runs if r.get("to_station") == to_station_equals]
-
-            if not db_runs:
-                return {
-                    "samples": [
-                        {"timestamp": f"10:{i:02d}", "distance": round(i * 0.5, 2), "speed": (i * 7) % 90, "station": ""}
-                        for i in range(20)
-                    ],
-                    "message": "No runs found, showing sample data"
-                }
-
-            latest = db_runs[0]
-            run_id = latest["run_id"]
-            points = get_points(run_id)
-
-            run_data = {
-                "run_id": run_id,
-                "staff_id": latest.get("motorman_hrms_id"),
-                "from_station": latest.get("from_station"),
-                "to_station": latest.get("to_station"),
-                "train_number": latest.get("train_number"),
-                "date_of_working": latest.get("date_of_working"),
-                "analysed_by": None,
-                "unit_number": latest.get("unit_no"),
-                "train_type": None,
-                "notes": latest.get("abnormality_noticed"),
-                "uploaded_at": latest.get("analysis_date").isoformat() if latest.get("analysis_date") else "",
                 "halting_stations": {},
                 "ordered_stations": [],
                 "violations": [],
