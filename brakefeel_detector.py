@@ -88,16 +88,23 @@ class BrakeFeelDetector:
         # 3. Recovery after the drop
 
         i = 0
+        bft_window_passed = False  # Track if we've passed the BFT window (speed exceeded 40)
+
         while i < len(speeds_clean) - 20:
             current_speed = speeds_clean[i]
 
-            # Skip if speed not in valid range
+            # Skip if speed not in valid range (below 15)
             if current_speed < self.min_speed_for_test:
                 i += 1
                 continue
 
-            # Skip if speed exceeds max (BFT should happen before 41 kmph)
+            # If speed exceeds max (40 kmph), BFT window has passed
+            # Once speed crosses 40, BFT should have been done - stop searching entirely
             if current_speed > self.max_speed_for_test:
+                if not bft_window_passed:
+                    bft_window_passed = True
+                    # BFT not done before 40 kmph - no valid BFT in this run
+                    break
                 i += 1
                 continue
 
