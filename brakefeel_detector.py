@@ -116,6 +116,7 @@ class BrakeFeelDetector:
             found_peak = False
 
             # Follow speed until it stops rising (no artificial limit - follow until drop detected)
+            drop_start_index = i
             for j in range(i, len(speeds_clean) - 15):  # Need 15 samples after for braking check
                 if speeds_clean[j] > self.max_speed_for_test:
                     # Speed exceeded max limit - BFT should have happened before this
@@ -127,6 +128,7 @@ class BrakeFeelDetector:
                 elif speeds_clean[j] < peak_speed - 2:
                     # Speed dropped by more than 2 kmph from peak, we found the peak
                     found_peak = True
+                    drop_start_index = j  # Remember where the drop started
                     break
 
             # Skip if speed exceeded max (BFT didn't happen in time)
@@ -139,15 +141,19 @@ class BrakeFeelDetector:
                 i += 1
                 continue
 
-            # Now look for rapid braking from peak (within 15 seconds)
-            braking_window = 15
-            lowest_speed = peak_speed
-            lowest_index = peak_index
+            # Now follow the drop from where it started until speed recovers
+            # Start from drop_start_index (where we detected the drop), not peak_index
+            lowest_speed = speeds_clean[drop_start_index]
+            lowest_index = drop_start_index
+            max_braking_window = 30  # Safety limit
 
-            for j in range(peak_index, min(peak_index + braking_window, len(speeds_clean))):
+            for j in range(drop_start_index, min(drop_start_index + max_braking_window, len(speeds_clean))):
                 if speeds_clean[j] < lowest_speed:
                     lowest_speed = speeds_clean[j]
                     lowest_index = j
+                elif speeds_clean[j] > lowest_speed + 2:
+                    # Speed started recovering (increased by more than 2 kmph), stop tracking
+                    break
 
             speed_drop = peak_speed - lowest_speed
 
