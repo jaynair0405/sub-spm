@@ -117,17 +117,17 @@ def generate_abnormality_text(
         else:
             remarks.append(f"MID PF SPEED MORE THAN 29 KMPH AT {','.join(mid_pf_violations)}")
 
-    # 4. One Coach Before Speed > 10 kmph
+    # 4. One Coach Before Speed > 15 kmph
     one_coach_violations = []
     for station, data in platform_entry_data.items():
         one_coach = data.get('one_coach_speed')
-        if one_coach and one_coach > 10:
+        if one_coach and one_coach > 15:
             one_coach_violations.append(f"{station}-{int(one_coach)}")
     if one_coach_violations:
         if len(one_coach_violations) > 5:
-            remarks.append("ONE COACH BEFORE SPEED MORE THAN 10 KMPH AT MANY STN")
+            remarks.append("ONE COACH BEFORE SPEED MORE THAN 15 KMPH AT MANY STN")
         else:
-            remarks.append(f"ONE COACH BEFORE SPEED MORE THAN 10 KMPH AT {','.join(one_coach_violations)}")
+            remarks.append(f"ONE COACH BEFORE SPEED MORE THAN 15 KMPH AT {','.join(one_coach_violations)}")
 
     # 5. Brake Feel Test
     if not brake_tests:
