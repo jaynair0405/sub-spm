@@ -1,0 +1,197 @@
+================================================================================
+                        SPM ANALYSIS APP - TASK LIST
+================================================================================
+Last Updated: 2025-12-28
+
+================================================================================
+COMPLETED TASKS - UI/FEATURES
+================================================================================
+
+[x] 1. Notes field - Remove from UI, keep backend for abnormality_noticed
+       - Hidden input field, backend still accepts it
+
+[x] 2. Staff ID dropdown - Populate from div_staff_master (designation_id=8)
+       - Shows: Name - CMS ID format
+       - Value: HRMS ID (primary key)
+
+[x] 3. Analysed By dropdown - Populate from div_cli_master
+       - Shows: CLI Name
+       - Value: CMS ID
+
+[x] 4. Nominated CLI - Auto-detect from staff's current_cli_id
+       - Displays in report metadata section
+
+[x] 5. Total Distance - Fix unit (divide by 1000 for km)
+       - Applied when value > 200 (assumes meters)
+
+[x] 6. Departure/Arrival - Extract from first/last row time of CSV
+       - start_time from first data row
+       - end_time from last data row
+
+[x] 7. Running Time - Calculate with midnight crossing handling
+       - Handles cases where train runs past midnight
+       - Format: HH:MM:SS
+
+[x] 8. Platform Entry Speed Chart
+       - SVG-based railway line visualization
+       - Green dots for <=43 km/h, Red for >43 km/h
+
+[x] 9. PSR/MPS Calculation & Display
+       - Uses segment JSON files (fast_segments.json, slow_segments.json)
+       - Green area on speed charts shows limit
+       - Violations detected and reported
+
+[x] 10. Brake Feel Detection
+        - Auto-detects brake feel tests from speed patterns
+        - Highlighted on charts with markArea
+        - Shown in trip summary table
+
+[x] 11. Station Halt Detection
+        - ISD-based algorithm for halt matching
+        - Platform length lookup from ISD data
+
+[x] 12. Print CSS Styling
+        - @media print rules for report formatting
+        - PDF header section (hidden until print)
+
+
+================================================================================
+PENDING TASKS - FROM USER'S ORIGINAL LIST
+================================================================================
+
+[x] 13. Train Service - Auto-derived from train number prefix
+        - 95xxx = Fast
+        - 96xxx, 97xxx = Slow (Main line)
+        - 98xxx = Slow (Harbour line)
+        - 99xxx = Slow (THB Trans-Harbour)
+        - Display: "95701 / Fast" or "96301 / Slow"
+
+[x] 14. Unit/Rake/Shed - Auto-derived from unit number
+        - getRakeType(): Alstom, Siemens, Bombardier, Medha, AC BHEL, AC Retro, Medha U/S
+        - getShedFromUnit(): NCS (Kurla), KCS (Kalva), SNPD (Sanpada)
+        - Data from reference_data/sheds.json
+        - Display format: 2231/Siemens/SNPD
+        - Live preview as user types unit number
+
+[ ] 15. Link to crtms.in SPM/RTIS hub
+        - Create card UI component with links
+        - USER INPUT NEEDED: What links/format needed?
+
+
+================================================================================
+PENDING TASKS - SUGGESTED IMPROVEMENTS
+================================================================================
+
+[x] 16. PDF Export Button (Basic - using print dialog)
+        - One-click PDF generation
+        - Uses browser print dialog (save as PDF)
+        - Green button appears after successful processing
+        - Include all charts and summary tables
+
+[ ] 16b. PDF Direct Download (Enhancement)
+         - Replace window.print() with html2pdf.js
+         - Direct download without print dialog
+         - Use shared library from CDN or /shared/libs/ folder
+         - Match rail-data-app behavior
+
+[ ] 17. History/Past Analyses List Page
+        - Show list of previously uploaded analyses
+        - Filter by date, train, staff
+        - Click to view past analysis
+        - Endpoint exists: GET /runs
+
+[ ] 18. Overspeed/Violation Summary Card
+        - Dedicated card showing all PSR violations
+        - Grouped by severity (minor/moderate/severe/critical)
+        - Total count and breakdown
+
+[ ] 19. Auto-detect Train Type from Train Number
+        - Use train_corridor_map.csv data
+        - Already has Type column (0=single, 1=Slow, 2=Fast)
+        - Auto-fill corridor selection
+
+[ ] 20. Exception Table Enhancement
+        - Currently shows Platform Entry, Mid Platform, One Coach
+        - Add PSR violations column
+        - Add brake test result
+
+[ ] 21. Station-wise Speed Table
+        - Tabular view of entry/mid/exit speeds per station
+        - Exportable to Excel/CSV
+
+[ ] 22. Save Analysis to Database
+        - Currently inserts to div_sub_spm_runs
+        - Add status/confirmation message
+        - Option to update existing analysis
+
+
+================================================================================
+TECHNICAL/BACKEND IMPROVEMENTS
+================================================================================
+
+[ ] 23. Error Handling Improvements
+        - Better user feedback on upload failures
+        - Connection error messages with retry option
+        - File format validation messages
+
+[x] 24. Loading States
+        - Show spinner during file upload/processing
+        - Full-screen overlay with animated spinner
+        - Dynamic message ("Uploading...", "Loading charts...")
+
+[ ] 25. Input Validation
+        - Required field checks before upload
+        - Date format validation
+        - Station pair validation (from != to)
+
+
+================================================================================
+NICE TO HAVE / FUTURE
+================================================================================
+
+[ ] 26. Batch Upload
+        - Upload multiple SPM files at once
+        - Process and save all
+
+[ ] 27. Comparison View
+        - Compare two runs side by side
+        - Same route, different dates
+
+[ ] 28. Dashboard/Analytics
+        - Aggregate stats across all analyses
+        - Trends over time
+        - Staff performance summary
+
+[ ] 29. Mobile Responsive UI
+        - Better display on tablets/phones
+
+[ ] 30. Braking Pattern Analysis (Fortnightly Report)
+        - Compare braking patterns of 20 motormen at same station+direction
+        - Uses div_sub_spm_window_points data
+        - Overlay chart showing 20 braking lines for comparison
+        - Identify smooth vs abrupt/dangerous braking
+        - Station + direction dropdown selection (e.g., CLA DN, GC DN)
+        - Date range filter
+        - Export chart as image/PDF
+        - Data cleanup: Auto-delete records older than 45 days
+        - ~56,000 rows/day stored, need periodic cleanup
+
+
+================================================================================
+NOTES
+================================================================================
+
+Database Tables:
+- div_staff_master: hrms_id (PK), current_cms_id, name, current_cli_id
+- div_cli_master: cli_id (PK), cmsid, cli_name
+- div_sub_spm_runs: stores analysis metadata
+- div_sub_spm_points: NOT USED (legacy)
+- div_sub_spm_station_windows: station entry speeds (summary)
+- div_sub_spm_window_points: SPM points within platform window (for braking analysis)
+
+Reference Data:
+- data/*.csv: Corridor ISD data
+- reference_data/*_segments.json: PSR/MPS limits
+- reference_data/station_km_*.json: Official station KM values
+
+================================================================================

@@ -889,9 +889,9 @@
                   <table class="summary-table">
                     <thead>
                       <tr>
-                        <th>PF Entry > 40</th>
-                        <th>Mid PF > 25</th>
-                        <th>1 Coach > 10</th>
+                        <th>PF Entry > 42</th>
+                        <th>Mid PF > 30</th>
+                        <th>1 Coach > 15</th>
                       </tr>
                     </thead>
                     <tbody id="pfSummaryBody">
@@ -967,10 +967,10 @@
         const oneEntries = [];
 
         (markers || []).forEach((marker) => {
-          if (marker.platform_entry_speed > 40) {
+          if (marker.platform_entry_speed > 42) {
             pfEntries.push(`${marker.station} · ${marker.platform_entry_speed} km/h`);
           }
-          if (marker.mid_platform_speed > 29) {
+          if (marker.mid_platform_speed > 30) {
             midEntries.push(`${marker.station} · ${marker.mid_platform_speed} km/h`);
           }
           if (marker.one_coach_speed > 15) {

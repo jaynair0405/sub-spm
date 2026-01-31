@@ -96,26 +96,29 @@ def generate_abnormality_text(
             f"PSR {psr} VIOLATION MOMENTARY AT {start_km}-{end_km} KM, {max_speed} KMPH FOR {duration} SEC"
         )
 
-    # 2. Platform Entry Speed > 40 kmph
+    # 2. Platform Entry Speed > 42 kmph
     pf_entry_violations = []
     for station, data in platform_entry_data.items():
         entry_speed = data.get('entry_speed')
-        if entry_speed and entry_speed > 40:
+        if entry_speed and entry_speed > 42:
             pf_entry_violations.append(f"{station}-{int(entry_speed)}")
     if pf_entry_violations:
-        remarks.append(f"PF ENTRY SPEED MORE THAN 40 KMPH AT {','.join(pf_entry_violations)}")
+        if len(pf_entry_violations) > 5:
+            remarks.append("PF ENTRY SPEED MORE THAN 42 KMPH AT MANY STN")
+        else:
+            remarks.append(f"PF ENTRY SPEED MORE THAN 42 KMPH AT {','.join(pf_entry_violations)}")
 
-    # 3. Mid Platform Speed > 29 kmph (at 130m from halt)
+    # 3. Mid Platform Speed > 30 kmph (at 130m from halt)
     mid_pf_violations = []
     for station, data in platform_entry_data.items():
         mid_pf = data.get('mid_platform_speed')
-        if mid_pf and mid_pf > 29:
+        if mid_pf and mid_pf > 30:
             mid_pf_violations.append(f"{station}-{int(mid_pf)}")
     if mid_pf_violations:
         if len(mid_pf_violations) > 5:
-            remarks.append("MID PF SPEED MORE THAN 29 KMPH AT MANY STN")
+            remarks.append("MID PF SPEED MORE THAN 30 KMPH AT MANY STN")
         else:
-            remarks.append(f"MID PF SPEED MORE THAN 29 KMPH AT {','.join(mid_pf_violations)}")
+            remarks.append(f"MID PF SPEED MORE THAN 30 KMPH AT {','.join(mid_pf_violations)}")
 
     # 4. One Coach Before Speed > 15 kmph
     one_coach_violations = []
