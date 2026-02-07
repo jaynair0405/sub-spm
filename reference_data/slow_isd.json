@@ -898,5 +898,110 @@
     "section": "VLDI-KYN",
     "station": "KYN",
     "platform_length_km": 0.27
+  },
+  "VDLR-KCE": {
+    "section": "VDLR-KCE",
+    "station": "VDLR",
+    "platform_length_km": 0.267
+  },
+  "KCE-MM": {
+    "section": "KCE-MM",
+    "station": "KCE",
+    "platform_length_km": 0.270
+  },
+  "MM-BA": {
+    "section": "MM-BA",
+    "station": "MM",
+    "platform_length_km": 0.272
+  },
+  "BA-KHR": {
+    "section": "BA-KHR",
+    "station": "BA",
+    "platform_length_km": 0.280
+  },
+  "KHR-STC": {
+    "section": "KHR-STC",
+    "station": "KHR",
+    "platform_length_km": 0.268
+  },
+  "STC-VLP": {
+    "section": "STC-VLP",
+    "station": "STC",
+    "platform_length_km": 0.279
+  },
+  "VLP-ADH": {
+    "section": "VLP-ADH",
+    "station": "VLP",
+    "platform_length_km": 0.276
+  },
+  "ADH-JOS": {
+    "section": "ADH-JOS",
+    "station": "ADH",
+    "platform_length_km": 0.274
+  },
+  "JOS-RMAR": {
+    "section": "JOS-RMAR",
+    "station": "JOS",
+    "platform_length_km": 0.272
+  },
+  "RMAR-GMN": {
+    "section": "RMAR-GMN",
+    "station": "RMAR",
+    "platform_length_km": 0.274
+  },
+  "RMAR-GMN_GMN": {
+    "section": "RMAR-GMN",
+    "station": "GMN",
+    "platform_length_km": 0.29
+  },
+  "GMN-RMAR": {
+    "section": "GMN-RMAR",
+    "station": "GMN",
+    "platform_length_km": 0.359
+  },
+  "RMAR-JOS": {
+    "section": "RMAR-JOS",
+    "station": "RMAR",
+    "platform_length_km": 0.268
+  },
+  "JOS-ADH": {
+    "section": "JOS-ADH",
+    "station": "JOS",
+    "platform_length_km": 0.271
+  },
+  "ADH-VLP": {
+    "section": "ADH-VLP",
+    "station": "ADH",
+    "platform_length_km": 0.299
+  },
+  "VLP-STC": {
+    "section": "VLP-STC",
+    "station": "VLP",
+    "platform_length_km": 0.273
+  },
+  "STC-KHR": {
+    "section": "STC-KHR",
+    "station": "STC",
+    "platform_length_km": 0.277
+  },
+  "KHR-BA": {
+    "section": "KHR-BA",
+    "station": "KHR",
+    "platform_length_km": 0.265
+  },
+  "BA-MM": {
+    "section": "BA-MM",
+    "station": "BA",
+    "platform_length_km": 0.278
+  },
+  "MM-KCE": {
+    "section": "MM-KCE",
+    "station": "MM",
+    "platform_length_km": 0.265
+  },
+  "KCE-VDLR": {
+    "section": "KCE-VDLR",
+    "station": "KCE",
+    "platform_length_km": 0.262
   }
 }

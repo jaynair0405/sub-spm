@@ -88,6 +88,17 @@ def get_slow_station_km_map():
         "CHF": 13680.0,     # 13.680 km
         "GTBN": 11480.0,    # 11.480 km
         "VDLR": 9110.0,     # 9.110 km
+        # GMN Extended Harbour Line (after VDLR)
+        "KCE": 10930.0,     # 10.93 km
+        "MM": 12470.0,      # 12.47 km
+        "BA": 14080.0,      # 14.08 km
+        "KHR": 15630.0,     # 15.63 km
+        "STC": 17030.0,     # 17.03 km
+        "VLP": 19090.0,     # 19.09 km
+        "ADH": 21300.0,     # 21.30 km
+        "JOS": 22990.0,     # 22.99 km
+        "RMAR": 24840.0,    # 24.84 km
+        "GMN": 26370.0,     # 26.37 km
         "SVE": 7100.0,      # 7.10 km
         "CTGN": 5180.0,     # 5.18 km
         "RRD": 4060.0,      # 4.060 km

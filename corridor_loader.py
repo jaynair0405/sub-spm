@@ -84,6 +84,9 @@ class CorridorManager:
         # Harbour Line
         "UPHARBOUR": "UPHARBOUR.csv",
         "DNHARBOUR": "DNHARBOUR.csv",
+        # Harbour Line Extended (CSMTH to Goregaon)
+        "UPCSMTH_GMN": "UPCSMTH_GMN.csv",
+        "DNCSMTH_GMN": "DNCSMTH_GMN.csv",
     }
 
     SLOW_SE_PREFIXES = {"960", "961", "962", "963"}
@@ -251,6 +254,11 @@ class CorridorManager:
         "KNDS",
     }
     THB_VSH_STATIONS = {"VSH_THB", "SNPD"}
+
+    # GMN (Goregaon) extended Harbour line stations (beyond regular Harbour)
+    GMN_STATIONS = {
+        "GMN", "RMAR", "JOS", "ADH", "VLP", "STC", "KHR", "BA", "MM", "KCE"
+    }
 
     def __init__(self, data_root: Path):
         self.data_root = data_root
@@ -422,6 +430,9 @@ class CorridorManager:
             return "THB_PNVL"  # Default: PNVL (990, 992, 993 and others)
 
         if prefix in self.HARBOUR_PREFIXES or prefix in self.PORT_PREFIXES:
+            # Check if GMN extended corridor needed
+            if from_station in self.GMN_STATIONS or to_station in self.GMN_STATIONS:
+                return "CSMTH_GMN"
             return "HARBOUR"
 
         # Central Railway - Simplified logic using FULLNE and FULLSE only
