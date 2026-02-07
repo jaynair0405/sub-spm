@@ -1,7 +1,7 @@
 ================================================================================
                         SPM ANALYSIS APP - TASK LIST
 ================================================================================
-Last Updated: 2025-12-28
+Last Updated: 2026-02-07
 
 ================================================================================
 COMPLETED TASKS - UI/FEATURES
@@ -165,7 +165,7 @@ NICE TO HAVE / FUTURE
 [ ] 29. Mobile Responsive UI
         - Better display on tablets/phones
 
-[ ] 30. Braking Pattern Analysis (Fortnightly Report)
+[x] 30. Braking Pattern Analysis (Fortnightly Report)
         - Compare braking patterns of 20 motormen at same station+direction
         - Uses div_sub_spm_window_points data
         - Overlay chart showing 20 braking lines for comparison
@@ -175,6 +175,26 @@ NICE TO HAVE / FUTURE
         - Export chart as image/PDF
         - Data cleanup: Auto-delete records older than 45 days
         - ~56,000 rows/day stored, need periodic cleanup
+        - STATUS: Added to TODO, awaiting implementation
+
+[x] 31. CSMTH-GMN Corridor (Harbour Line Extension to Goregaon)
+        - COMPLETED: Added corridor CSV files (UPCSMTH_GMN.csv, DNCSMTH_GMN.csv)
+        - COMPLETED: Updated corridor_loader.py with GMN_STATIONS detection
+        - COMPLETED: Added station KM values to station_km_maps.py
+        - COMPLETED: Added platform lengths to slow_isd.json (both directions)
+        - COMPLETED: Added PSR/MPS segments to slow_segments.json (both directions)
+        - COMPLETED: Updated train_corridor_map.csv (GN/B trains → CSMTH_GMN)
+        - COMPLETED: Multi-corridor train selector for GNPL/PLGN trains
+
+[ ] 32. Port Line URAN Section (BEPR/NEU - URAN)
+        - Last remaining section in suburban network
+        - PENDING: No test data available currently
+        - TODO: slow_isd.json - Add platform lengths for URAN section
+        - TODO: slow_segments.json - Add PSR/MPS segments
+        - TODO: corridor_loader.py - Add URAN station detection
+        - TODO: station_km_maps.py - Add station KM values
+        - TODO: Corridor CSV files for URAN section
+        - TODO: Update train_corridor_map.csv for URAN trains
 
 
 ================================================================================
