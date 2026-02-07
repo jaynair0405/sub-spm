@@ -705,6 +705,22 @@
                 oninput="this.value = this.value.toUpperCase()"
               />
             </label>
+            <!-- Multi-corridor train segment selector (hidden by default) -->
+            <div id="corridorSelector" style="display: none; background: #fff3cd; border: 1px solid #ffc107; border-radius: 6px; padding: 12px; margin: 8px 0;">
+              <div style="font-weight: 600; color: #856404; margin-bottom: 8px;">
+                ⚠️ Multi-corridor train detected. Select segment to analyze:
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 8px;">
+                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 8px; background: #fff; border-radius: 4px; border: 1px solid #ddd;">
+                  <input type="radio" name="corridorSegment" value="GMN-VDLR" style="margin: 0;">
+                  <span><strong>GMN → VDLR</strong></span>
+                </label>
+                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 8px; background: #fff; border-radius: 4px; border: 1px solid #ddd;">
+                  <input type="radio" name="corridorSegment" value="VDLR-PNVL" style="margin: 0;">
+                  <span><strong>VDLR → PNVL</strong></span>
+                </label>
+              </div>
+            </div>
             <label>
               Date of Working
               <input
@@ -845,7 +861,7 @@
         <section class="card">
           <div class="panel-header">
             <span>Platform Entry Overview</span>
-            <span class="subtle">Platform entry speeds • Green: ≤43 km/h • Red: >43 km/h</span>
+            <span class="subtle">Platform entry speeds • Green: ≤45 km/h • Red: >45 km/h</span>
           </div>
           <div style="width: 100%; height: 150px;">
             <svg id="railwayLine" style="width: 100%; height: 100%;"></svg>
@@ -1914,13 +1930,91 @@
       }
 
       function onTrainNumberChange(e) {
-        const value = e.target.value.trim();
+        const value = e.target.value.trim().toUpperCase();
         // Clear existing timer
         if (trainLookupTimer) clearTimeout(trainLookupTimer);
+
+        // Check for multi-corridor trains (GNPL, PLGN)
+        checkMultiCorridorTrain(value);
+
         // Debounce: wait 500ms after user stops typing
         trainLookupTimer = setTimeout(() => {
           lookupTrainNumber(value);
         }, 500);
+      }
+
+      // Multi-corridor train detection and handling
+      let isMultiCorridorTrain = false;
+
+      function checkMultiCorridorTrain(trainNumber) {
+        const corridorSelector = document.getElementById("corridorSelector");
+        const processBtn = document.getElementById("processBtn");
+        const fromField = document.getElementById("fromStation");
+        const toField = document.getElementById("toStation");
+
+        // Check if GNPL or PLGN train
+        const isGNPL = trainNumber.includes("GNPL");
+        const isPLGN = trainNumber.includes("PLGN");
+
+        if (isGNPL || isPLGN) {
+          isMultiCorridorTrain = true;
+          corridorSelector.style.display = "block";
+
+          // Update radio button labels based on direction
+          const radios = corridorSelector.querySelectorAll('input[name="corridorSegment"]');
+          const labels = corridorSelector.querySelectorAll('label span');
+
+          if (isGNPL) {
+            // GNPL: GMN → PNVL (even = UP direction)
+            radios[0].value = "GMN-VDLR";
+            radios[1].value = "VDLR-PNVL";
+            labels[0].innerHTML = "<strong>GMN → VDLR</strong>";
+            labels[1].innerHTML = "<strong>VDLR → PNVL</strong>";
+          } else {
+            // PLGN: PNVL → GMN (odd = DN direction)
+            radios[0].value = "PNVL-VDLR";
+            radios[1].value = "VDLR-GMN";
+            labels[0].innerHTML = "<strong>PNVL → VDLR</strong>";
+            labels[1].innerHTML = "<strong>VDLR → GMN</strong>";
+          }
+
+          // Clear previous selection
+          radios.forEach(r => r.checked = false);
+
+          // Disable process button until selection
+          processBtn.disabled = true;
+          processBtn.style.opacity = "0.5";
+          processBtn.title = "Please select a corridor segment first";
+
+          // Clear from/to fields
+          fromField.value = "";
+          toField.value = "";
+        } else {
+          isMultiCorridorTrain = false;
+          corridorSelector.style.display = "none";
+          processBtn.disabled = false;
+          processBtn.style.opacity = "1";
+          processBtn.title = "";
+        }
+      }
+
+      function onCorridorSegmentChange(e) {
+        const segment = e.target.value;
+        const fromField = document.getElementById("fromStation");
+        const toField = document.getElementById("toStation");
+        const processBtn = document.getElementById("processBtn");
+
+        // Parse segment and set from/to
+        const [from, to] = segment.split("-");
+        fromField.value = from;
+        toField.value = to;
+
+        // Enable process button
+        processBtn.disabled = false;
+        processBtn.style.opacity = "1";
+        processBtn.title = "";
+
+        console.log(`[Corridor Segment] Selected: ${from} → ${to}`);
       }
 
       // Initialize dropdowns on page load
@@ -1931,6 +2025,12 @@
         document.getElementById("staffId").addEventListener("change", onStaffSelect);
         document.getElementById("unitNumber").addEventListener("input", onUnitNumberChange);
         document.getElementById("trainNumber").addEventListener("input", onTrainNumberChange);
+
+        // Add event listeners for corridor segment radio buttons
+        const corridorRadios = document.querySelectorAll('input[name="corridorSegment"]');
+        corridorRadios.forEach(radio => {
+          radio.addEventListener("change", onCorridorSegmentChange);
+        });
       });
 
       async function uploadFile() {
@@ -1988,7 +2088,7 @@
         const height = 150;
         const padding = 30;
         const lineY = height / 2;
-        const SPEED_THRESHOLD = 43; // Green ≤ 43, Red > 43
+        const SPEED_THRESHOLD = 45; // Green ≤ 45, Red > 45
 
         // Get max distance for scaling
         const maxDistance = Math.max(...stationData.map(s => s.distance));

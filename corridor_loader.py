@@ -122,10 +122,12 @@ class CorridorManager:
         "984",
         "985",
         "986",
-        "987",
         "988",
-        "989",
     }
+    # 987XX trains (GN/B type): always GMN corridor, direction from last digit
+    GMN_ALWAYS_PREFIXES = {"987"}
+    # 989XX trains (PLGN/GNPL type): hybrid - GMN or Harbour depending on user-selected stations
+    GMN_HYBRID_PREFIXES = {"989"}
     PORT_PREFIXES = {"996", "997"}
 
     SE_STATIONS = {
@@ -255,9 +257,9 @@ class CorridorManager:
     }
     THB_VSH_STATIONS = {"VSH_THB", "SNPD"}
 
-    # GMN (Goregaon) extended Harbour line stations (beyond regular Harbour)
+    # GMN (Goregaon) extended Harbour line stations (VDLR is the junction point)
     GMN_STATIONS = {
-        "GMN", "RMAR", "JOS", "ADH", "VLP", "STC", "KHR", "BA", "MM", "KCE"
+        "GMN", "RMAR", "JOS", "ADH", "VLP", "STC", "KHR", "BA", "MM", "KCE", "VDLR"
     }
 
     def __init__(self, data_root: Path):
@@ -408,13 +410,48 @@ class CorridorManager:
         if not train_code:
             return {"corridor": None, "direction": None, "train_code": None}
 
-        direction = "UP" if int(str(train_code).strip()[-1]) % 2 == 0 else "DN"
-        base = self._resolve_base_corridor(train_code, from_station, to_station)
+        code_str = str(train_code).strip()
+        prefix = code_str[:3]
+        last_digit = int(code_str[-1])
+        direction = "UP" if last_digit % 2 == 0 else "DN"
+
+        from_st = (from_station or "").strip().upper()
+        to_st = (to_station or "").strip().upper()
+
+        # --- Special handling for GMN hybrid trains (989XX: PLGN/GNPL) ---
+        # These trains cross VDLR junction spanning two corridors.
+        # If both stations are on GMN line → use CSMTH_GMN, normal direction
+        # If not both on GMN line → use HARBOUR, direction FLIPPED
+        if prefix in self.GMN_HYBRID_PREFIXES:
+            both_gmn = from_st in self.GMN_STATIONS and to_st in self.GMN_STATIONS
+            if both_gmn:
+                corridor = f"{direction}CSMTH_GMN"
+            else:
+                flipped = "UP" if direction == "DN" else "DN"
+                corridor = f"{flipped}HARBOUR"
+                direction = flipped  # report the corrected direction
+            return {
+                "corridor": corridor,
+                "direction": direction,
+                "train_code": code_str,
+            }
+
+        # --- 987XX trains (GN/B type): always GMN corridor ---
+        if prefix in self.GMN_ALWAYS_PREFIXES:
+            corridor = f"{direction}CSMTH_GMN"
+            return {
+                "corridor": corridor,
+                "direction": direction,
+                "train_code": code_str,
+            }
+
+        # --- All other trains: existing logic ---
+        base = self._resolve_base_corridor(train_code, from_st, to_st)
         corridor = f"{direction}{base}" if base else None
         return {
             "corridor": corridor,
             "direction": direction,
-            "train_code": str(train_code),
+            "train_code": code_str,
         }
 
     def _resolve_base_corridor(self, train_code: str, from_station: str, to_station: str) -> Optional[str]:
@@ -430,9 +467,6 @@ class CorridorManager:
             return "THB_PNVL"  # Default: PNVL (990, 992, 993 and others)
 
         if prefix in self.HARBOUR_PREFIXES or prefix in self.PORT_PREFIXES:
-            # Check if GMN extended corridor needed
-            if from_station in self.GMN_STATIONS or to_station in self.GMN_STATIONS:
-                return "CSMTH_GMN"
             return "HARBOUR"
 
         # Central Railway - Simplified logic using FULLNE and FULLSE only

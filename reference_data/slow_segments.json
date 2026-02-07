@@ -2743,5 +2743,285 @@
         "limit": 95
       }
     ]
+  },
+  {
+    "segment": "VDLR-KCE",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 0.66,
+        "limit": 80
+      },
+      {
+        "startPct": 0.66,
+        "endPct": 1.0,
+        "limit": 50
+      }
+    ]
+  },
+  {
+    "segment": "KCE-MM",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 1.0,
+        "limit": 50
+      }
+    ]
+  },
+  {
+    "segment": "MM-BA",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 0.38,
+        "limit": 50
+      },
+      {
+        "startPct": 0.38,
+        "endPct": 0.79,
+        "limit": 80
+      },
+      {
+        "startPct": 0.79,
+        "endPct": 1.0,
+        "limit": 35
+      }
+    ]
+  },
+  {
+    "segment": "BA-KHR",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 0.24,
+        "limit": 35
+      },
+      {
+        "startPct": 0.24,
+        "endPct": 1.0,
+        "limit": 40
+      }
+    ]
+  },
+  {
+    "segment": "KHR-STC",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 1.0,
+        "limit": 80
+      }
+    ]
+  },
+  {
+    "segment": "STC-VLP",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 1.0,
+        "limit": 80
+      }
+    ]
+  },
+  {
+    "segment": "VLP-ADH",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 0.53,
+        "limit": 80
+      },
+      {
+        "startPct": 0.53,
+        "endPct": 1.0,
+        "limit": 50
+      }
+    ]
+  },
+  {
+    "segment": "ADH-JOS",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 0.11,
+        "limit": 50
+      },
+      {
+        "startPct": 0.11,
+        "endPct": 1.0,
+        "limit": 80
+      }
+    ]
+  },
+  {
+    "segment": "JOS-RMAR",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 1.0,
+        "limit": 80
+      }
+    ]
+  },
+  {
+    "segment": "RMAR-GMN",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 1.0,
+        "limit": 80
+      }
+    ]
+  },
+  {
+    "segment": "GMN-RMAR",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 1.0,
+        "limit": 80
+      }
+    ]
+  },
+  {
+    "segment": "RMAR-JOS",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 1.0,
+        "limit": 80
+      }
+    ]
+  },
+  {
+    "segment": "JOS-ADH",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 0.86,
+        "limit": 80
+      },
+      {
+        "startPct": 0.86,
+        "endPct": 1.0,
+        "limit": 50
+      }
+    ]
+  },
+  {
+    "segment": "ADH-VLP",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 0.30,
+        "limit": 50
+      },
+      {
+        "startPct": 0.30,
+        "endPct": 0.82,
+        "limit": 80
+      },
+      {
+        "startPct": 0.82,
+        "endPct": 1.0,
+        "limit": 65
+      }
+    ]
+  },
+  {
+    "segment": "VLP-STC",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 0.27,
+        "limit": 70
+      },
+      {
+        "startPct": 0.27,
+        "endPct": 0.78,
+        "limit": 80
+      },
+      {
+        "startPct": 0.78,
+        "endPct": 1.0,
+        "limit": 60
+      }
+    ]
+  },
+  {
+    "segment": "STC-KHR",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 1.0,
+        "limit": 80
+      }
+    ]
+  },
+  {
+    "segment": "KHR-BA",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 0.15,
+        "limit": 30
+      },
+      {
+        "startPct": 0.15,
+        "endPct": 1.0,
+        "limit": 40
+      }
+    ]
+  },
+  {
+    "segment": "BA-MM",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 0.02,
+        "limit": 40
+      },
+      {
+        "startPct": 0.02,
+        "endPct": 0.17,
+        "limit": 15
+      },
+      {
+        "startPct": 0.17,
+        "endPct": 0.62,
+        "limit": 80
+      },
+      {
+        "startPct": 0.62,
+        "endPct": 1.0,
+        "limit": 35
+      }
+    ]
+  },
+  {
+    "segment": "MM-KCE",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 0.40,
+        "limit": 35
+      },
+      {
+        "startPct": 0.40,
+        "endPct": 1.0,
+        "limit": 50
+      }
+    ]
+  },
+  {
+    "segment": "KCE-VDLR",
+    "limits": [
+      {
+        "startPct": 0.0,
+        "endPct": 1.0,
+        "limit": 50
+      }
+    ]
   }
 ]
