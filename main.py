@@ -16,7 +16,7 @@ from halt_detection import HaltDetector, calculate_cumulative_distance
 from platform_entry_speed import PlatformEntryCalculator
 from brakefeel_detector import BrakeFeelDetector
 from station_km_maps import get_station_km_map_for_train_type
-from spm_db import get_run, get_points, list_runs, get_runs_by_date, get_staff_list, get_cli_list, get_staff_by_hrms, get_cli_by_cms_id
+from spm_db import get_run, get_points, list_runs, get_runs_by_date, get_staff_list, get_cli_list, get_staff_by_hrms, get_cli_by_cms_id, get_braking_analysis_data, get_stations_with_braking_data
 
 # app = FastAPI(title="SPM Analysis API")
 ROOT_PATH = os.getenv("ROOT_PATH", "")
@@ -175,6 +175,15 @@ async def serve_spm_html():
     html_path = DATA_ROOT / "ui" / "spm.html"
     if not html_path.exists():
         raise HTTPException(status_code=404, detail="spm.html not found")
+    return FileResponse(html_path)
+
+
+@app.get("/braking_report.html")
+async def serve_braking_report_html():
+    """Serve the Braking Pattern Analysis HTML interface"""
+    html_path = DATA_ROOT / "ui" / "braking_report.html"
+    if not html_path.exists():
+        raise HTTPException(status_code=404, detail="braking_report.html not found")
     return FileResponse(html_path)
 
 
@@ -1347,3 +1356,65 @@ async def get_train_info(train_number: str, from_station: str = "", to_station: 
         "halts": halts,
         "corridor_info": corridor_info,
     }
+
+
+# ============================================================================
+# BRAKING PATTERN ANALYSIS ENDPOINTS
+# ============================================================================
+
+@app.get("/braking-analysis/stations")
+async def get_braking_stations(start_date: str, end_date: str):
+    """
+    Get list of stations that have braking data in the given date range.
+    Used to populate station dropdowns.
+    """
+    try:
+        stations = get_stations_with_braking_data(start_date, end_date)
+        return {"stations": stations}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/braking-analysis/data")
+async def get_braking_data(
+    station: str,
+    direction: str,
+    start_date: str,
+    end_date: str,
+    limit: int = 20
+):
+    """
+    Get braking pattern data for a station.
+    Auto-selects the route with most data to ensure consistent platform.
+
+    Args:
+        station: Station code (e.g., 'TNA')
+        direction: 'UP' or 'DN'
+        start_date: Start date (YYYY-MM-DD)
+        end_date: End date (YYYY-MM-DD)
+        limit: Max runs to return (default 20)
+
+    Returns:
+        Dict with route info and runs with braking points for charting
+    """
+    if direction not in ['UP', 'DN']:
+        raise HTTPException(status_code=400, detail="Direction must be 'UP' or 'DN'")
+
+    try:
+        data = get_braking_analysis_data(station, direction, start_date, end_date, limit)
+        return {
+            "station": station,
+            "direction": direction,
+            "start_date": start_date,
+            "end_date": end_date,
+            "route": data.get('route'),
+            "train_type": data.get('train_type'),
+            "halt_km_group": data.get('halt_km_group'),
+            "platform_length": data.get('platform_length'),
+            "total_available": data.get('total_available', 0),
+            "count": len(data.get('runs', [])),
+            "runs": data.get('runs', []),
+            "message": data.get('message')
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
