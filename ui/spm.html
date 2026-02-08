@@ -1662,15 +1662,10 @@
         }
       }
       // ╔════════════════════════════════════════════════════════════════════╗
-      // ║  IMPORTANT: API BASE CONFIGURATION - CHANGE BEFORE DEPLOYMENT!      ║
-      // ╠════════════════════════════════════════════════════════════════════╣
-      // ║  FOR SERVER (crtms.in):  const CHART_API_BASE = "/spm/sub-spm";     ║
-      // ║  FOR LOCAL DEVELOPMENT:  const CHART_API_BASE = "";                 ║
-      // ╚════════════════════════════════════════════════════════════════════╝
-
-      // >>> CURRENT SETTING: LOCAL DEVELOPMENT <<<
-      //const CHART_API_BASE = "/spm/sub-spm";  // USE THIS FOR SERVER
-      const CHART_API_BASE = "";                // USE THIS FOR LOCAL
+      // Auto-detect environment based on hostname (no manual switching needed)
+      const CHART_API_BASE = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+        ? ""
+        : "/spm/sub-spm";
       let currentRunId = null;
       let staffData = {}; // Store staff data for nominated CLI lookup
       let staffSelect = null; // Tom Select instance for staff dropdown
