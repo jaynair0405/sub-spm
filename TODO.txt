@@ -198,6 +198,40 @@ NICE TO HAVE / FUTURE
 
 
 ================================================================================
+DEPLOYMENT - PENDING IMPROVEMENTS
+================================================================================
+
+[ ] 33. Fix Server Deployment Method
+        ISSUE FACED (2026-02-08):
+        - Tried git clone on server, broke everything
+        - git clone creates fresh directory missing: venv/, .env, data/, reference_data/
+        - PM2 command syntax issues with Python/uvicorn
+        - Mixed scp and git deployment caused confusion
+
+        WORKAROUND DONE:
+        - Restored from backup (spm-analysis-app-backup)
+        - Created start.sh script for PM2:
+          #!/bin/bash
+          cd /home/railway/spm-analysis-app
+          source venv/bin/activate
+          exec uvicorn main:app --host 127.0.0.1 --port 8766
+        - PM2 command: pm2 start ~/spm-analysis-app/start.sh --name sub-spm --interpreter bash
+        - Using scp for updates (works reliably)
+
+        OPTION A - SCP Deploy Script (Simple):
+        - Create deploy.sh locally that scp's all files and restarts pm2
+        - Run ./deploy.sh for each update
+
+        OPTION B - Proper Git Setup (Long-term):
+        - Initialize git in existing server folder (not fresh clone)
+        - git init && git remote add origin <url> && git fetch && git reset --hard origin/master
+        - Add .gitignore for venv/, .env, __pycache__/
+        - Future updates: git pull && pm2 restart sub-spm
+
+        STATUS: Pending - attend later
+
+
+================================================================================
 NOTES
 ================================================================================
 

@@ -25,6 +25,9 @@ app = FastAPI(
     root_path=ROOT_PATH
 )
 
+# Initialize DATA_ROOT
+DATA_ROOT = Path(__file__).parent
+
 # Enable CORS for local development
 app.add_middleware(
     CORSMiddleware,
@@ -35,7 +38,6 @@ app.add_middleware(
 )
 
 # Initialize corridor manager
-DATA_ROOT = Path(__file__).parent
 corridor_manager = CorridorManager(DATA_ROOT)
 
 # Initialize PSR/MPS calculator

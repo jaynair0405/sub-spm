@@ -122,10 +122,9 @@ class CorridorManager:
         "984",
         "985",
         "986",
-        "988",
     }
-    # 987XX trains (GN/B type): always GMN corridor, direction from last digit
-    GMN_ALWAYS_PREFIXES = {"987"}
+    # 987XX (GN type) and 988XX (B type): always GMN corridor, direction from last digit
+    GMN_ALWAYS_PREFIXES = {"987", "988"}
     # 989XX trains (PLGN/GNPL type): hybrid - GMN or Harbour depending on user-selected stations
     GMN_HYBRID_PREFIXES = {"989"}
     PORT_PREFIXES = {"996", "997"}
