@@ -436,22 +436,10 @@
         const now = new Date();
         const options = [];
 
-        // Start from the most recent complete fortnight and go back
+        // Start from the CURRENT fortnight (even if incomplete) and go back
         let year = now.getFullYear();
         let month = now.getMonth(); // 0-indexed
         let isSecondFortnight = now.getDate() > 15;
-
-        // If we're in the first half, start from last month's second fortnight
-        // If we're in the second half, start from this month's first fortnight
-        if (!isSecondFortnight) {
-          // We're in 1-15, so most recent complete is previous month's 16-end
-          month--;
-          if (month < 0) { month = 11; year--; }
-          isSecondFortnight = true;
-        } else {
-          // We're in 16-end, so most recent complete is this month's 1-15
-          isSecondFortnight = false;
-        }
 
         // Generate last 6 complete fortnights
         for (let i = 0; i < 6; i++) {
