@@ -603,3 +603,248 @@ def get_stations_with_braking_data(start_date: str, end_date: str) -> List[str]:
         return [row[0] for row in rows]
     finally:
         cn.close()
+
+
+# ============ REPORTS: Not Analyzed Features ============
+
+def get_motorman_report_kpi_stats() -> Dict[str, Any]:
+    """
+    Get KPI stats for motorman analysis reports.
+    Returns: total analyses, distinct motormen analyzed, this month count,
+             not analyzed > 3 months, not analyzed > 15 days
+    """
+    cn = get_db_connection()
+    try:
+        cur = cn.cursor(dictionary=True)
+
+        # Total analyses count
+        cur.execute("SELECT COUNT(*) as count FROM div_sub_spm_runs")
+        total_result = cur.fetchone()
+        total_count = total_result['count'] if total_result else 0
+
+        # Distinct motormen analyzed (all time)
+        cur.execute("SELECT COUNT(DISTINCT motorman_hrms_id) as count FROM div_sub_spm_runs WHERE motorman_hrms_id IS NOT NULL")
+        distinct_result = cur.fetchone()
+        distinct_count = distinct_result['count'] if distinct_result else 0
+
+        # Analyses this month
+        cur.execute("""
+            SELECT COUNT(*) as count FROM div_sub_spm_runs
+            WHERE YEAR(analysis_date) = YEAR(CURDATE())
+              AND MONTH(analysis_date) = MONTH(CURDATE())
+        """)
+        month_result = cur.fetchone()
+        month_count = month_result['count'] if month_result else 0
+
+        # Motormen not analyzed > 3 months (90 days) - including never analyzed
+        cur.execute("""
+            SELECT COUNT(*) as count
+            FROM div_staff_master sm
+            LEFT JOIN (
+                SELECT motorman_hrms_id, MAX(analysis_date) as last_analysis
+                FROM div_sub_spm_runs
+                GROUP BY motorman_hrms_id
+            ) a ON sm.hrms_id = a.motorman_hrms_id
+            WHERE sm.designation_id = 8
+              AND sm.status = 'Active'
+              AND (a.motorman_hrms_id IS NULL OR DATEDIFF(CURDATE(), a.last_analysis) > 90)
+        """)
+        three_month_result = cur.fetchone()
+        three_month_count = three_month_result['count'] if three_month_result else 0
+
+        # Motormen not analyzed > 15 days (only those who have been analyzed before)
+        cur.execute("""
+            SELECT COUNT(*) as count
+            FROM div_staff_master sm
+            INNER JOIN (
+                SELECT motorman_hrms_id, MAX(analysis_date) as last_analysis
+                FROM div_sub_spm_runs
+                GROUP BY motorman_hrms_id
+            ) a ON sm.hrms_id = a.motorman_hrms_id
+            WHERE sm.designation_id = 8
+              AND sm.status = 'Active'
+              AND DATEDIFF(CURDATE(), a.last_analysis) > 15
+        """)
+        fifteen_day_result = cur.fetchone()
+        fifteen_day_count = fifteen_day_result['count'] if fifteen_day_result else 0
+
+        # Total active motormen
+        cur.execute("""
+            SELECT COUNT(*) as count
+            FROM div_staff_master
+            WHERE designation_id = 8 AND status = 'Active'
+        """)
+        total_motormen_result = cur.fetchone()
+        total_motormen = total_motormen_result['count'] if total_motormen_result else 0
+
+        cur.close()
+        return {
+            "success": True,
+            "total_analyses": total_count,
+            "distinct_motormen_analyzed": distinct_count,
+            "this_month": month_count,
+            "not_analyzed_3_months": three_month_count,
+            "not_analyzed_15_days": fifteen_day_count,
+            "total_active_motormen": total_motormen
+        }
+    finally:
+        cn.close()
+
+
+def get_not_analyzed_3_months() -> List[Dict[str, Any]]:
+    """
+    Get list of motormen not analyzed in last 3 months (90 days) or never analyzed.
+    """
+    cn = get_db_connection()
+    try:
+        cur = cn.cursor(dictionary=True)
+
+        query = """
+            SELECT
+                sm.name as motorman_name,
+                sm.hrms_id,
+                sm.current_cms_id as cms_id,
+                a.last_analysis,
+                CASE
+                    WHEN a.last_analysis IS NULL THEN NULL
+                    ELSE DATEDIFF(CURDATE(), a.last_analysis)
+                END as days_since,
+                a.analysis_count
+            FROM div_staff_master sm
+            LEFT JOIN (
+                SELECT motorman_hrms_id,
+                       MAX(analysis_date) as last_analysis,
+                       COUNT(*) as analysis_count
+                FROM div_sub_spm_runs
+                GROUP BY motorman_hrms_id
+            ) a ON sm.hrms_id = a.motorman_hrms_id
+            WHERE sm.designation_id = 8
+              AND sm.status = 'Active'
+              AND (a.motorman_hrms_id IS NULL OR DATEDIFF(CURDATE(), a.last_analysis) > 90)
+            ORDER BY a.last_analysis IS NULL DESC, a.last_analysis ASC, sm.name
+        """
+
+        cur.execute(query)
+        results = cur.fetchall()
+        cur.close()
+        return results
+    finally:
+        cn.close()
+
+
+def get_daily_analysis_trend(year: int = None, month: int = None) -> List[Dict[str, Any]]:
+    """
+    Get day-wise analysis count for a given month.
+    Defaults to current month.
+    """
+    from datetime import datetime
+    if year is None:
+        year = datetime.now().year
+    if month is None:
+        month = datetime.now().month
+
+    cn = get_db_connection()
+    try:
+        cur = cn.cursor(dictionary=True)
+        cur.execute("""
+            SELECT
+                DAY(analysis_date) as day,
+                COUNT(*) as count
+            FROM div_sub_spm_runs
+            WHERE YEAR(analysis_date) = %s
+              AND MONTH(analysis_date) = %s
+            GROUP BY DAY(analysis_date)
+            ORDER BY day
+        """, (year, month))
+        results = cur.fetchall()
+        cur.close()
+        return results
+    finally:
+        cn.close()
+
+
+def get_month_comparison() -> Dict[str, Any]:
+    """
+    Compare current month's analysis count (up to today's date)
+    with last month's same period.
+    """
+    cn = get_db_connection()
+    try:
+        cur = cn.cursor(dictionary=True)
+
+        # Current month count (up to today)
+        cur.execute("""
+            SELECT COUNT(*) as count
+            FROM div_sub_spm_runs
+            WHERE YEAR(analysis_date) = YEAR(CURDATE())
+              AND MONTH(analysis_date) = MONTH(CURDATE())
+              AND DAY(analysis_date) <= DAY(CURDATE())
+        """)
+        current_result = cur.fetchone()
+        current_count = current_result['count'] if current_result else 0
+
+        # Last month same period (up to same day number)
+        cur.execute("""
+            SELECT COUNT(*) as count
+            FROM div_sub_spm_runs
+            WHERE YEAR(analysis_date) = YEAR(DATE_SUB(CURDATE(), INTERVAL 1 MONTH))
+              AND MONTH(analysis_date) = MONTH(DATE_SUB(CURDATE(), INTERVAL 1 MONTH))
+              AND DAY(analysis_date) <= DAY(CURDATE())
+        """)
+        last_result = cur.fetchone()
+        last_count = last_result['count'] if last_result else 0
+
+        cur.close()
+
+        difference = current_count - last_count
+        return {
+            "current_month": current_count,
+            "last_month_same_period": last_count,
+            "difference": difference
+        }
+    finally:
+        cn.close()
+
+
+def get_not_analyzed_15_days() -> List[Dict[str, Any]]:
+    """
+    Get list of motormen not analyzed in last 15 days.
+    Only includes motormen who have been analyzed at least once.
+    """
+    cn = get_db_connection()
+    try:
+        cur = cn.cursor(dictionary=True)
+
+        query = """
+            SELECT
+                sm.hrms_id,
+                sm.name as motorman_name,
+                sm.current_cms_id as cms_id,
+                a.last_analysis,
+                DATEDIFF(CURDATE(), a.last_analysis) as days_since,
+                a.last_train,
+                a.analysis_count
+            FROM div_staff_master sm
+            INNER JOIN (
+                SELECT
+                    motorman_hrms_id,
+                    MAX(analysis_date) as last_analysis,
+                    COUNT(*) as analysis_count,
+                    (SELECT train_number FROM div_sub_spm_runs
+                     WHERE motorman_hrms_id = r.motorman_hrms_id
+                     ORDER BY analysis_date DESC LIMIT 1) as last_train
+                FROM div_sub_spm_runs r
+                GROUP BY motorman_hrms_id
+            ) a ON sm.hrms_id = a.motorman_hrms_id
+            WHERE sm.designation_id = 8
+              AND sm.status = 'Active'
+              AND DATEDIFF(CURDATE(), a.last_analysis) > 15
+            ORDER BY days_since DESC
+        """
+
+        cur.execute(query)
+        results = cur.fetchall()
+        cur.close()
+        return results
+    finally:
+        cn.close()

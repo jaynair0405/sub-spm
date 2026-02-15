@@ -1,0 +1,630 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Motorman Analysis Reports - SPM</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+    <style>
+      :root {
+        --brand: #0b3d91;
+        --brand-soft: #eef3ff;
+        --accent: #f0b429;
+        --border: #d7ddec;
+        --text: #1f2533;
+        --muted: #5b6070;
+        --card: #ffffff;
+        --bg: #f5f7fb;
+        --success: #28a745;
+        --warning: #f59e0b;
+        --danger: #dc3545;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+        background: linear-gradient(135deg, var(--bg), #edf1fc);
+        color: var(--text);
+        min-height: 100vh;
+      }
+      .page-shell {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 20px 22px 40px;
+      }
+      header {
+        background: var(--brand);
+        color: #fff;
+        padding: 20px 24px;
+        border-radius: 18px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 20px;
+        box-shadow: 0 20px 45px rgba(11, 61, 145, 0.25);
+        margin-bottom: 20px;
+      }
+      header h1 {
+        margin: 0;
+        font-size: 1.6rem;
+        letter-spacing: 0.01em;
+      }
+      header span {
+        font-size: 0.95rem;
+        opacity: 0.95;
+      }
+      .back-link {
+        color: #fff;
+        text-decoration: none;
+        font-size: 0.9rem;
+        opacity: 0.9;
+        padding: 8px 16px;
+        background: rgba(255,255,255,0.15);
+        border-radius: 6px;
+      }
+      .back-link:hover { opacity: 1; background: rgba(255,255,255,0.25); }
+
+      .btn {
+        padding: 10px 20px;
+        border: none;
+        border-radius: 8px;
+        font-size: 0.95rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s;
+      }
+      .btn-primary {
+        background: var(--brand);
+        color: #fff;
+      }
+      .btn-primary:hover {
+        background: #0a3580;
+      }
+
+      /* KPI Cards */
+      .kpi-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 16px;
+        margin-bottom: 24px;
+      }
+      .kpi-card {
+        background: var(--card);
+        border-radius: 14px;
+        padding: 20px;
+        border: 1px solid var(--border);
+        position: relative;
+        overflow: hidden;
+      }
+      .kpi-card.green { border-left: 4px solid var(--success); }
+      .kpi-card.orange { border-left: 4px solid var(--warning); }
+      .kpi-card.red { border-left: 4px solid var(--danger); }
+      .kpi-card.blue { border-left: 4px solid var(--brand); }
+      .kpi-value {
+        font-size: 2rem;
+        font-weight: 700;
+        color: var(--text);
+      }
+      .kpi-label {
+        font-size: 0.85rem;
+        color: var(--muted);
+        margin-top: 4px;
+      }
+      .kpi-icon {
+        position: absolute;
+        right: 16px;
+        top: 50%;
+        transform: translateY(-50%);
+        font-size: 2.5rem;
+        opacity: 0.15;
+      }
+
+      /* Details/Accordion Sections */
+      .details-section {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+      }
+      details {
+        background: var(--card);
+        border-radius: 14px;
+        border: 1px solid var(--border);
+        overflow: hidden;
+      }
+      summary {
+        padding: 16px 20px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        font-weight: 600;
+        color: var(--brand);
+        list-style: none;
+      }
+      summary::-webkit-details-marker { display: none; }
+      summary::before {
+        content: '\f078';
+        font-family: 'Font Awesome 6 Free';
+        font-weight: 900;
+        margin-right: 12px;
+        transition: transform 0.2s;
+        font-size: 0.8rem;
+      }
+      details[open] summary::before {
+        transform: rotate(180deg);
+      }
+      .summary-content {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .badge {
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        font-weight: 600;
+      }
+      .badge-danger { background: #fee2e2; color: var(--danger); }
+      .badge-warning { background: #fef3c7; color: #b45309; }
+
+      /* Tables */
+      .table-wrapper {
+        padding: 0 20px 20px;
+        overflow-x: auto;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.9rem;
+      }
+      th {
+        text-align: left;
+        padding: 12px 10px;
+        background: var(--brand-soft);
+        color: var(--brand);
+        font-weight: 600;
+        border-bottom: 2px solid var(--border);
+        white-space: nowrap;
+      }
+      td {
+        padding: 10px;
+        border-bottom: 1px solid var(--border);
+      }
+      tr:hover { background: #f9fafc; }
+
+      .loading {
+        text-align: center;
+        padding: 40px;
+        color: var(--muted);
+      }
+      .empty-state {
+        text-align: center;
+        padding: 30px;
+        color: var(--muted);
+        font-style: italic;
+      }
+
+      .refresh-bar {
+        display: flex;
+        justify-content: flex-end;
+        margin-bottom: 16px;
+      }
+
+      /* Chart Section */
+      .chart-section {
+        background: var(--card);
+        border-radius: 14px;
+        padding: 20px;
+        border: 1px solid var(--border);
+        margin-bottom: 24px;
+      }
+      .chart-title {
+        font-size: 1rem;
+        font-weight: 600;
+        color: var(--brand);
+        margin-bottom: 16px;
+      }
+      .chart-container {
+        width: 100%;
+        height: 280px;
+      }
+
+      /* Comparison Badge */
+      .kpi-comparison {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        padding: 2px 8px;
+        border-radius: 12px;
+        margin-top: 6px;
+      }
+      .kpi-comparison.positive {
+        background: #d1fae5;
+        color: #047857;
+      }
+      .kpi-comparison.negative {
+        background: #fee2e2;
+        color: #dc2626;
+      }
+      .kpi-comparison.neutral {
+        background: #f3f4f6;
+        color: #6b7280;
+      }
+
+      @media print {
+        body { background: #fff; }
+        header, .refresh-bar, .btn { display: none; }
+        .kpi-grid { grid-template-columns: repeat(3, 1fr); }
+        .chart-section { page-break-inside: avoid; }
+        .chart-container { height: 250px; }
+        details { break-inside: avoid; }
+        details[open] { page-break-inside: avoid; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="page-shell">
+      <header>
+        <div>
+          <h1>Motorman Analysis Reports</h1>
+          <span>Track SPM analysis coverage for motormen</span>
+        </div>
+        <a href="spm.html" class="back-link"><i class="fa-solid fa-arrow-left"></i> Back to SPM Console</a>
+      </header>
+
+      <!-- Refresh Button -->
+      <div class="refresh-bar">
+        <button class="btn btn-primary" onclick="loadAllData()">
+          <i class="fa-solid fa-sync"></i> Refresh
+        </button>
+      </div>
+
+      <!-- KPI Cards -->
+      <div class="kpi-grid">
+        <div class="kpi-card blue">
+          <div class="kpi-value" id="kpi-total">-</div>
+          <div class="kpi-label">Total Analyses</div>
+          <i class="fa-solid fa-chart-line kpi-icon" style="color: var(--brand);"></i>
+        </div>
+        <div class="kpi-card blue">
+          <div class="kpi-value" id="kpi-motormen">-</div>
+          <div class="kpi-label">Motormen Analyzed</div>
+          <i class="fa-solid fa-users kpi-icon" style="color: var(--brand);"></i>
+        </div>
+        <div class="kpi-card green">
+          <div class="kpi-value" id="kpi-month">-</div>
+          <div class="kpi-label">Done This Month</div>
+          <div class="kpi-comparison neutral" id="kpi-comparison">
+            <span id="comparison-text">vs last month</span>
+          </div>
+          <i class="fa-solid fa-calendar-check kpi-icon" style="color: var(--success);"></i>
+        </div>
+        <div class="kpi-card red">
+          <div class="kpi-value" id="kpi-3months">-</div>
+          <div class="kpi-label">Not Analyzed > 3 Months</div>
+          <i class="fa-solid fa-triangle-exclamation kpi-icon" style="color: var(--danger);"></i>
+        </div>
+        <div class="kpi-card orange">
+          <div class="kpi-value" id="kpi-15days">-</div>
+          <div class="kpi-label">Not Analyzed > 15 Days</div>
+          <i class="fa-solid fa-clock-rotate-left kpi-icon" style="color: var(--warning);"></i>
+        </div>
+        <div class="kpi-card blue">
+          <div class="kpi-value" id="kpi-total-motormen">-</div>
+          <div class="kpi-label">Total Active Motormen</div>
+          <i class="fa-solid fa-id-card kpi-icon" style="color: var(--brand);"></i>
+        </div>
+      </div>
+
+      <!-- Daily Trend Chart -->
+      <div class="chart-section">
+        <div class="chart-title">
+          <i class="fa-solid fa-chart-bar"></i> Daily Analysis Trend - <span id="chart-month-label">This Month</span>
+        </div>
+        <div class="chart-container" id="dailyTrendChart"></div>
+      </div>
+
+      <!-- Detail Sections -->
+      <div class="details-section">
+
+        <!-- Not Analyzed > 3 Months -->
+        <details>
+          <summary>
+            <div class="summary-content">
+              <i class="fa-solid fa-user-slash" style="color: var(--danger);"></i>
+              <span>Not Analyzed > 3 Months</span>
+            </div>
+            <span class="badge badge-danger" id="badge-3months">0 Records</span>
+          </summary>
+          <div class="table-wrapper">
+            <table>
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Motorman Name</th>
+                  <th>HRMS ID</th>
+                  <th>CMS ID</th>
+                  <th>Last Analyzed</th>
+                  <th>Days Since</th>
+                </tr>
+              </thead>
+              <tbody id="table-3months">
+                <tr><td colspan="6" class="loading">Loading...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </details>
+
+        <!-- Not Analyzed > 15 Days -->
+        <details>
+          <summary>
+            <div class="summary-content">
+              <i class="fa-solid fa-hourglass-end" style="color: var(--warning);"></i>
+              <span>Not Analyzed > 15 Days</span>
+            </div>
+            <span class="badge badge-warning" id="badge-15days">0 Records</span>
+          </summary>
+          <div class="table-wrapper">
+            <table>
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Motorman Name</th>
+                  <th>HRMS ID</th>
+                  <th>CMS ID</th>
+                  <th>Last Analyzed</th>
+                  <th>Days Since</th>
+                  <th>Last Train</th>
+                </tr>
+              </thead>
+              <tbody id="table-15days">
+                <tr><td colspan="7" class="loading">Loading...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </details>
+
+      </div>
+    </div>
+
+    <script>
+      // API base - auto-detect environment
+      const API_BASE = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+        ? ""
+        : "/spm/sub-spm";
+
+      let trendChart = null;
+
+      // Initialize
+      document.addEventListener('DOMContentLoaded', () => {
+        loadAllData();
+      });
+
+      // Load all data
+      function loadAllData() {
+        loadKPIStats();
+        loadMonthComparison();
+        loadDailyTrend();
+        loadNotAnalyzed3Months();
+        loadNotAnalyzed15Days();
+      }
+
+      // Load KPI stats
+      async function loadKPIStats() {
+        try {
+          const resp = await fetch(`${API_BASE}/api/reports/kpi-stats`);
+          const data = await resp.json();
+          if (data.success) {
+            document.getElementById('kpi-total').textContent = data.total_analyses.toLocaleString();
+            document.getElementById('kpi-motormen').textContent = data.distinct_motormen_analyzed.toLocaleString();
+            document.getElementById('kpi-month').textContent = data.this_month.toLocaleString();
+            document.getElementById('kpi-3months').textContent = data.not_analyzed_3_months.toLocaleString();
+            document.getElementById('kpi-15days').textContent = data.not_analyzed_15_days.toLocaleString();
+            document.getElementById('kpi-total-motormen').textContent = data.total_active_motormen.toLocaleString();
+          }
+        } catch (err) {
+          console.error('Error loading KPI stats:', err);
+        }
+      }
+
+      // Load month comparison
+      async function loadMonthComparison() {
+        try {
+          const resp = await fetch(`${API_BASE}/api/reports/month-comparison`);
+          const data = await resp.json();
+          if (data.success) {
+            const diff = data.difference;
+            const compEl = document.getElementById('kpi-comparison');
+            const textEl = document.getElementById('comparison-text');
+
+            if (diff > 0) {
+              compEl.className = 'kpi-comparison positive';
+              textEl.innerHTML = `<i class="fa-solid fa-arrow-up"></i> +${diff} vs last month`;
+            } else if (diff < 0) {
+              compEl.className = 'kpi-comparison negative';
+              textEl.innerHTML = `<i class="fa-solid fa-arrow-down"></i> ${diff} vs last month`;
+            } else {
+              compEl.className = 'kpi-comparison neutral';
+              textEl.innerHTML = `<i class="fa-solid fa-equals"></i> Same as last month`;
+            }
+          }
+        } catch (err) {
+          console.error('Error loading month comparison:', err);
+        }
+      }
+
+      // Load daily trend chart
+      async function loadDailyTrend() {
+        try {
+          const resp = await fetch(`${API_BASE}/api/reports/daily-trend`);
+          const data = await resp.json();
+
+          // Set month label
+          const now = new Date();
+          const monthName = now.toLocaleString('default', { month: 'long', year: 'numeric' });
+          document.getElementById('chart-month-label').textContent = monthName;
+
+          if (data.success) {
+            renderTrendChart(data.data, now.getFullYear(), now.getMonth() + 1);
+          }
+        } catch (err) {
+          console.error('Error loading daily trend:', err);
+        }
+      }
+
+      // Render the trend chart
+      function renderTrendChart(data, year, month) {
+        const container = document.getElementById('dailyTrendChart');
+
+        if (trendChart) {
+          trendChart.dispose();
+        }
+        trendChart = echarts.init(container);
+
+        // Get number of days in month
+        const daysInMonth = new Date(year, month, 0).getDate();
+        const today = new Date().getDate();
+
+        // Create array for all days
+        const days = [];
+        const counts = [];
+        for (let d = 1; d <= daysInMonth; d++) {
+          days.push(d);
+          const dayData = data.find(item => item.day === d);
+          counts.push(dayData ? dayData.count : 0);
+        }
+
+        const option = {
+          tooltip: {
+            trigger: 'axis',
+            formatter: function(params) {
+              const day = params[0].name;
+              const count = params[0].value;
+              return `Day ${day}: <b>${count}</b> analyses`;
+            }
+          },
+          grid: {
+            left: '3%',
+            right: '4%',
+            bottom: '10%',
+            top: '10%',
+            containLabel: true
+          },
+          xAxis: {
+            type: 'category',
+            data: days,
+            axisLabel: {
+              fontSize: 10,
+              interval: 0,
+              rotate: 0
+            },
+            axisTick: { alignWithLabel: true }
+          },
+          yAxis: {
+            type: 'value',
+            minInterval: 1,
+            axisLabel: { fontSize: 10 }
+          },
+          series: [{
+            name: 'Analyses',
+            type: 'bar',
+            data: counts.map((val, idx) => ({
+              value: val,
+              itemStyle: {
+                color: idx + 1 <= today ? '#0b3d91' : '#d7ddec'
+              }
+            })),
+            barMaxWidth: 30,
+            label: {
+              show: true,
+              position: 'top',
+              fontSize: 9,
+              formatter: function(params) {
+                return params.value > 0 ? params.value : '';
+              }
+            }
+          }]
+        };
+
+        trendChart.setOption(option);
+        window.addEventListener('resize', () => trendChart.resize());
+      }
+
+      // Load Not Analyzed > 3 Months
+      async function loadNotAnalyzed3Months() {
+        try {
+          const resp = await fetch(`${API_BASE}/api/reports/not-analyzed-3months`);
+          const data = await resp.json();
+
+          if (data.success) {
+            document.getElementById('badge-3months').textContent = `${data.data.length} Records`;
+
+            if (data.data.length > 0) {
+              const html = data.data.map((item, idx) => `
+                <tr>
+                  <td>${idx + 1}</td>
+                  <td>${item.motorman_name || '-'}</td>
+                  <td>${item.hrms_id || '-'}</td>
+                  <td>${item.cms_id || '-'}</td>
+                  <td>${item.last_analysis ? formatDate(item.last_analysis) : '<span style="color:var(--danger)">Never</span>'}</td>
+                  <td style="color: var(--danger); font-weight: bold;">${item.days_since ? item.days_since + ' Days' : 'Never'}</td>
+                </tr>
+              `).join('');
+              document.getElementById('table-3months').innerHTML = html;
+            } else {
+              document.getElementById('table-3months').innerHTML = '<tr><td colspan="6" class="empty-state">No records found - All motormen analyzed within 3 months!</td></tr>';
+            }
+          }
+        } catch (err) {
+          console.error('Error loading not analyzed 3 months:', err);
+          document.getElementById('table-3months').innerHTML = '<tr><td colspan="6" class="empty-state" style="color:var(--danger)">Error loading data</td></tr>';
+        }
+      }
+
+      // Load Not Analyzed > 15 Days
+      async function loadNotAnalyzed15Days() {
+        try {
+          const resp = await fetch(`${API_BASE}/api/reports/not-analyzed-15days`);
+          const data = await resp.json();
+
+          if (data.success) {
+            document.getElementById('badge-15days').textContent = `${data.data.length} Records`;
+
+            if (data.data.length > 0) {
+              const html = data.data.map((item, idx) => `
+                <tr>
+                  <td>${idx + 1}</td>
+                  <td>${item.motorman_name || '-'}</td>
+                  <td>${item.hrms_id || '-'}</td>
+                  <td>${item.cms_id || '-'}</td>
+                  <td>${item.last_analysis ? formatDate(item.last_analysis) : '-'}</td>
+                  <td style="color: var(--warning); font-weight: bold;">${item.days_since} Days</td>
+                  <td>${item.last_train || '-'}</td>
+                </tr>
+              `).join('');
+              document.getElementById('table-15days').innerHTML = html;
+            } else {
+              document.getElementById('table-15days').innerHTML = '<tr><td colspan="7" class="empty-state">No records found - All motormen analyzed within 15 days!</td></tr>';
+            }
+          }
+        } catch (err) {
+          console.error('Error loading not analyzed 15 days:', err);
+          document.getElementById('table-15days').innerHTML = '<tr><td colspan="7" class="empty-state" style="color:var(--danger)">Error loading data</td></tr>';
+        }
+      }
+
+      // Format date helper
+      function formatDate(dateStr) {
+        if (!dateStr) return '-';
+        const d = new Date(dateStr);
+        return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+      }
+    </script>
+  </body>
+</html>

@@ -16,7 +16,12 @@ from halt_detection import HaltDetector, calculate_cumulative_distance
 from platform_entry_speed import PlatformEntryCalculator
 from brakefeel_detector import BrakeFeelDetector
 from station_km_maps import get_station_km_map_for_train_type
-from spm_db import get_run, get_points, list_runs, get_runs_by_date, get_staff_list, get_cli_list, get_staff_by_hrms, get_cli_by_cms_id, get_braking_analysis_data, get_stations_with_braking_data
+from spm_db import (
+    get_run, get_points, list_runs, get_runs_by_date, get_staff_list, get_cli_list,
+    get_staff_by_hrms, get_cli_by_cms_id, get_braking_analysis_data, get_stations_with_braking_data,
+    get_motorman_report_kpi_stats, get_not_analyzed_3_months, get_not_analyzed_15_days,
+    get_daily_analysis_trend, get_month_comparison
+)
 
 # app = FastAPI(title="SPM Analysis API")
 ROOT_PATH = os.getenv("ROOT_PATH", "")
@@ -1418,5 +1423,77 @@ async def get_braking_data(
             "runs": data.get('runs', []),
             "message": data.get('message')
         }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ============ REPORTS: Motorman Analysis Reports ============
+
+@app.get("/reports.html")
+async def serve_reports_html():
+    """Serve the motorman reports page"""
+    html_path = Path(__file__).parent / "ui" / "reports.html"
+    if not html_path.exists():
+        raise HTTPException(status_code=404, detail="Reports page not found")
+    return FileResponse(html_path, media_type="text/html")
+
+
+@app.get("/api/reports/kpi-stats")
+async def api_get_report_kpi_stats():
+    """
+    Get KPI statistics for motorman analysis reports.
+    """
+    try:
+        stats = get_motorman_report_kpi_stats()
+        return stats
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/reports/not-analyzed-3months")
+async def api_get_not_analyzed_3months():
+    """
+    Get list of motormen not analyzed in last 3 months (90 days) or never.
+    """
+    try:
+        data = get_not_analyzed_3_months()
+        return {"success": True, "data": data}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/reports/not-analyzed-15days")
+async def api_get_not_analyzed_15days():
+    """
+    Get list of motormen not analyzed in last 15 days.
+    """
+    try:
+        data = get_not_analyzed_15_days()
+        return {"success": True, "data": data}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/reports/daily-trend")
+async def api_get_daily_trend(year: int = None, month: int = None):
+    """
+    Get day-wise analysis count for a given month.
+    Defaults to current month.
+    """
+    try:
+        data = get_daily_analysis_trend(year, month)
+        return {"success": True, "data": data}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/reports/month-comparison")
+async def api_get_month_comparison():
+    """
+    Compare current month with last month same period.
+    """
+    try:
+        data = get_month_comparison()
+        return {"success": True, **data}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
