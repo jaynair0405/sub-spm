@@ -19,8 +19,8 @@ from station_km_maps import get_station_km_map_for_train_type
 from spm_db import (
     get_run, get_points, list_runs, get_runs_by_date, get_staff_list, get_cli_list,
     get_staff_by_hrms, get_cli_by_cms_id, get_braking_analysis_data, get_stations_with_braking_data,
-    get_motorman_report_kpi_stats, get_not_analyzed_3_months, get_not_analyzed_15_days,
-    get_daily_analysis_trend, get_month_comparison
+    get_motormen_for_station, get_motorman_report_kpi_stats, get_not_analyzed_3_months,
+    get_not_analyzed_15_days, get_daily_analysis_trend, get_month_comparison
 )
 
 # app = FastAPI(title="SPM Analysis API")
@@ -791,9 +791,40 @@ async def upload_spm_file(
         # Generate run ID with UUID to prevent collisions when multiple users upload simultaneously
         run_id = f"RUN_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:8]}"
 
-        # Store run data
+        # Prepare run_row for DB insert (will be saved on confirm)
+        run_row = {
+            "run_id": run_id,
+            "uploaded_by_user_id": None,
+            "original_filename": file.filename,
+            "date_of_working": date_of_working,
+            "train_number": train_number,
+            "unit_no": unit_number,
+            "from_station": from_station,
+            "to_station": to_station,
+            "motorman_hrms_id": staff_id,
+            "motorman_cms_id": motorman_cms_id or None,
+            "nom_cli_cms_id": nominated_cli_cms_id or None,
+            "done_by_cli_cms_id": analysed_by or None,
+            "abnormality_noticed": abnormality_text,
+            "max_speed": float(df["Speed"].max()),
+            "avg_speed": float(df["Speed"].mean()),
+            "total_distance": float(df["Distance"].sum()),
+        }
+
+        # Check if there's an existing run with same date+train+from+to
+        existing_run_id = find_existing_run(date_of_working, train_number, from_station, to_station)
+        existing_analysis_date = None
+        if existing_run_id:
+            existing_run = get_run(existing_run_id)
+            if existing_run and existing_run.get('analysis_date'):
+                existing_analysis_date = existing_run['analysis_date'].strftime('%d-%m-%Y %H:%M') if hasattr(existing_run['analysis_date'], 'strftime') else str(existing_run['analysis_date'])
+
+        # Store run data in memory (NOT saved to DB yet - user must confirm)
         runs_storage[run_id] = {
             "run_id": run_id,
+            "confirmed": False,  # Not saved to DB yet
+            "existing_run_id": existing_run_id,  # For duplicate handling on confirm
+            "existing_analysis_date": existing_analysis_date,  # When the duplicate was analyzed
             "filename": file.filename,
             "staff_id": staff_id,
             "motorman_name": motorman_name,
@@ -823,35 +854,8 @@ async def upload_spm_file(
             "max_speed": float(df["Speed"].max()),
             "total_distance": float(df["Distance"].sum()),
             "platform_entry_data": platform_entry_data,
+            "run_row": run_row,  # Store for DB insert on confirm
         }
-        run_row = {
-            "run_id": run_id,
-            "uploaded_by_user_id": None,
-            "original_filename": file.filename,
-            "date_of_working": date_of_working,
-            "train_number": train_number,
-            "unit_no": unit_number,
-            "from_station": from_station,
-            "to_station": to_station,
-            "motorman_hrms_id": staff_id,
-            "motorman_cms_id": motorman_cms_id or None,
-            "nom_cli_cms_id": nominated_cli_cms_id or None,
-            "done_by_cli_cms_id": analysed_by or None,
-            "abnormality_noticed": abnormality_text,
-            "max_speed": float(df["Speed"].max()),
-            "avg_speed": float(df["Speed"].mean()),
-            "total_distance": float(df["Distance"].sum()),
-        }
-
-        # Check for existing run with same date+train+from+to (upsert logic)
-        existing_run_id = find_existing_run(date_of_working, train_number, from_station, to_station)
-        replaced_existing = False
-        if existing_run_id:
-            print(f"[DEBUG DB] Found existing run {existing_run_id} for {date_of_working}/{train_number}/{from_station}-{to_station}, replacing...")
-            delete_run_cascade(existing_run_id)
-            replaced_existing = True
-
-        insert_run(run_row)
 
         station_window_rows = []
         window_point_rows = []
@@ -928,8 +932,12 @@ async def upload_spm_file(
                     ))
                     seq += 1
 
-        insert_station_windows(station_window_rows)
-        insert_window_points(window_point_rows)
+        # Store station_window_rows and window_point_rows for DB insert on confirm
+        runs_storage[run_id]["station_window_rows"] = station_window_rows
+        runs_storage[run_id]["window_point_rows"] = window_point_rows
+
+        # NOTE: DB insert moved to /api/confirm/{run_id} endpoint
+        # Data is only saved when user clicks "Confirm & Save"
 
         # Extract departure/arrival times from first/last row
         start_time = None
@@ -973,7 +981,8 @@ async def upload_spm_file(
         return {
             "success": True,
             "run_id": run_id,
-            "replaced_existing": replaced_existing,
+            "has_existing_duplicate": existing_run_id is not None,
+            "existing_analysis_date": existing_analysis_date,
             "rows_processed": len(df),
             "motorman_name": motorman_name,
             "motorman_hq": motorman_hq,
@@ -1128,7 +1137,7 @@ async def export_daily_csv(date: Optional[str] = None):
 
 
 @app.get("/runs/{run_id}")
-async def get_run(run_id: str):
+async def get_run_details(run_id: str):
     """Get details of a specific run"""
     if run_id not in runs_storage:
         raise HTTPException(status_code=404, detail="Run not found")
@@ -1350,6 +1359,62 @@ async def delete_run(run_id: str):
     return {"success": True, "message": f"Run {run_id} deleted"}
 
 
+@app.post("/api/confirm/{run_id}")
+async def confirm_run(run_id: str):
+    """
+    Confirm and save a run to the database.
+    Data is only saved when user explicitly confirms after reviewing charts.
+    """
+    if run_id not in runs_storage:
+        raise HTTPException(status_code=404, detail="Run not found in memory")
+
+    run_data = runs_storage[run_id]
+
+    # Check if already confirmed
+    if run_data.get("confirmed", False):
+        return {"success": True, "message": "Run already confirmed", "run_id": run_id}
+
+    # Check for existing run with same date+train+from+to (upsert logic)
+    existing_run_id = run_data.get("existing_run_id")
+    replaced_existing = False
+    if existing_run_id:
+        print(f"[DEBUG DB] Found existing run {existing_run_id}, replacing...")
+        delete_run_cascade(existing_run_id)
+        replaced_existing = True
+
+    # Get stored data for DB insert
+    run_row = run_data.get("run_row")
+    station_window_rows = run_data.get("station_window_rows", [])
+    window_point_rows = run_data.get("window_point_rows", [])
+
+    if not run_row:
+        raise HTTPException(status_code=500, detail="Run data incomplete - missing run_row")
+
+    try:
+        # Insert to database
+        insert_run(run_row)
+        insert_station_windows(station_window_rows)
+        insert_window_points(window_point_rows)
+
+        # Mark as confirmed
+        runs_storage[run_id]["confirmed"] = True
+
+        print(f"[DEBUG DB] Run {run_id} confirmed and saved to database")
+
+        return {
+            "success": True,
+            "message": "Analysis confirmed and saved",
+            "run_id": run_id,
+            "replaced_existing": replaced_existing
+        }
+
+    except Exception as e:
+        print(f"[ERROR] Failed to save run {run_id}: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Failed to save: {str(e)}")
+
+
 @app.get("/train/{train_number}/info")
 async def get_train_info(train_number: str, from_station: str = "", to_station: str = ""):
     """Get train information including corridor and halts"""
@@ -1388,7 +1453,9 @@ async def get_braking_data(
     direction: str,
     start_date: str,
     end_date: str,
-    limit: int = 20
+    limit: int = 20,
+    safe_zone_only: bool = True,
+    motorman_hrms_id: str = None
 ):
     """
     Get braking pattern data for a station.
@@ -1400,6 +1467,8 @@ async def get_braking_data(
         start_date: Start date (YYYY-MM-DD)
         end_date: End date (YYYY-MM-DD)
         limit: Max runs to return (default 20)
+        safe_zone_only: If True, only return runs within safe braking zone (default True)
+        motorman_hrms_id: Optional - filter for specific motorman (returns all their runs)
 
     Returns:
         Dict with route info and runs with braking points for charting
@@ -1408,7 +1477,7 @@ async def get_braking_data(
         raise HTTPException(status_code=400, detail="Direction must be 'UP' or 'DN'")
 
     try:
-        data = get_braking_analysis_data(station, direction, start_date, end_date, limit)
+        data = get_braking_analysis_data(station, direction, start_date, end_date, limit, safe_zone_only, motorman_hrms_id)
         return {
             "station": station,
             "direction": direction,
@@ -1416,12 +1485,46 @@ async def get_braking_data(
             "end_date": end_date,
             "route": data.get('route'),
             "train_type": data.get('train_type'),
-            "halt_km_group": data.get('halt_km_group'),
             "platform_length": data.get('platform_length'),
             "total_available": data.get('total_available', 0),
             "count": len(data.get('runs', [])),
             "runs": data.get('runs', []),
-            "message": data.get('message')
+            "message": data.get('message'),
+            "motorman_hrms_id": motorman_hrms_id
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/braking-analysis/motormen")
+async def get_braking_motormen(
+    station: str,
+    direction: str,
+    start_date: str,
+    end_date: str
+):
+    """
+    Get list of motormen who have braking data at a station.
+    Used for "Specific Motorman" filter in braking report.
+
+    Args:
+        station: Station code (e.g., 'TNA')
+        direction: 'UP' or 'DN'
+        start_date: Start date (YYYY-MM-DD)
+        end_date: End date (YYYY-MM-DD)
+
+    Returns:
+        List of motormen with run counts
+    """
+    if direction not in ['UP', 'DN']:
+        raise HTTPException(status_code=400, detail="Direction must be 'UP' or 'DN'")
+
+    try:
+        motormen = get_motormen_for_station(station, direction, start_date, end_date)
+        return {
+            "station": station,
+            "direction": direction,
+            "motormen": motormen
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

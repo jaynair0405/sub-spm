@@ -419,7 +419,44 @@ def get_train_corridor_map() -> Dict[str, Dict[str, str]]:
     return _TRAIN_CORRIDOR_MAP
 
 
-def get_braking_analysis_data(station_code: str, direction: str, start_date: str, end_date: str, limit: int = 20) -> Dict[str, Any]:
+def get_max_safe_speed(dist_from_halt: float, platform_length: float = 270) -> float:
+    """
+    Calculate max allowed speed at given distance from halt.
+    Uses linear interpolation between threshold points:
+    - Platform entry (platform_length): 45 km/h
+    - Mid-platform (130m): 30 km/h
+    - One coach (20m): 15 km/h
+    - Halt (0m): 5 km/h (tolerance for final stopping)
+
+    The 5 km/h tolerance at halt allows for normal train creeping to stop.
+    """
+    if dist_from_halt >= platform_length:
+        return 45
+    elif dist_from_halt >= 130:
+        return 30 + (dist_from_halt - 130) * (45 - 30) / (platform_length - 130)
+    elif dist_from_halt >= 20:
+        return 15 + (dist_from_halt - 20) * (30 - 15) / (130 - 20)
+    else:
+        # Linear from (20m, 15) to (0m, 5) - tolerance for final stopping
+        return 5 + dist_from_halt * (15 - 5) / 20
+
+
+def is_run_within_safe_zone(points: list, halt_km: float, platform_length: float = 270) -> bool:
+    """
+    Check if all points of a run are within the safe zone.
+    Returns True if all points have speed <= max allowed at that distance.
+    """
+    for point in points:
+        dist_from_halt = (halt_km - point['cumulative_distance']) * 1000  # meters
+        if dist_from_halt < 0:
+            continue  # past halt, skip
+        max_speed = get_max_safe_speed(dist_from_halt, platform_length)
+        if point['speed'] > max_speed:
+            return False
+    return True
+
+
+def get_braking_analysis_data(station_code: str, direction: str, start_date: str, end_date: str, limit: int = 20, safe_zone_only: bool = True, motorman_hrms_id: str = None) -> Dict[str, Any]:
     """
     Get braking pattern data for a station within a date range.
     Auto-selects runs with similar halt_km to ensure same track/platform.
@@ -431,6 +468,8 @@ def get_braking_analysis_data(station_code: str, direction: str, start_date: str
         start_date: Start date (YYYY-MM-DD)
         end_date: End date (YYYY-MM-DD)
         limit: Max number of runs to return (default 20)
+        safe_zone_only: If True, only include runs within safe braking zone (default True)
+        motorman_hrms_id: Optional - filter for specific motorman (returns all their runs)
 
     Returns:
         Dict with route info and list of runs with braking points
@@ -492,6 +531,13 @@ def get_braking_analysis_data(station_code: str, direction: str, start_date: str
             cur.close()
             return {'route': None, 'runs': [], 'message': f'No through-running {direction} trains found (terminating trains excluded)'}
 
+        # Step 2b: Filter by specific motorman if provided
+        if motorman_hrms_id:
+            filtered_runs = [r for r in filtered_runs if r.get('motorman_hrms_id') == motorman_hrms_id]
+            if not filtered_runs:
+                cur.close()
+                return {'route': None, 'runs': [], 'message': f'No runs found for this motorman at {station_code}'}
+
         # Step 3: Group by train type (Fast/Slow) first
         type_groups = {}  # {'1': [runs], '2': [runs]}
         for run in filtered_runs:
@@ -514,21 +560,10 @@ def get_braking_analysis_data(station_code: str, direction: str, start_date: str
             routes = [r.get('route', '') for r in type_filtered_runs if r.get('route')]
             type_label = max(set(routes), key=routes.count) if routes else 'Local'
 
-        # Step 4: Group by halt_km similarity (within tolerance)
-        # This ensures all selected runs are on the same physical track
-        halt_km_groups = {}  # {rounded_halt_km: [runs]}
-
-        for run in type_filtered_runs:
-            halt_km = run['halt_km']
-            # Round to nearest km for grouping
-            group_key = round(halt_km)
-            if group_key not in halt_km_groups:
-                halt_km_groups[group_key] = []
-            halt_km_groups[group_key].append(run)
-
-        # Step 5: Select the halt_km group with most runs
-        best_group_key = max(halt_km_groups.keys(), key=lambda k: len(halt_km_groups[k]))
-        selected_runs = halt_km_groups[best_group_key]
+        # Step 4: Use all runs of selected train type (no halt_km grouping)
+        # Note: halt_km varies by train origin station, not by platform
+        # All same-type (Fast/Slow) trains use the same platform regardless of origin
+        selected_runs = type_filtered_runs
 
         # Get the dominant route in this group
         route_counts = {}
@@ -537,11 +572,15 @@ def get_braking_analysis_data(station_code: str, direction: str, start_date: str
             route_counts[route] = route_counts.get(route, 0) + 1
         best_route = max(route_counts.keys(), key=lambda r: route_counts[r])
 
-        # Step 6: Random selection up to limit
-        if len(selected_runs) > limit:
-            selected_runs = random.sample(selected_runs, limit)
+        # Get platform length (most common among selected runs) - needed for safe zone check
+        pf_lengths = [r.get('platform_length_m') for r in selected_runs if r.get('platform_length_m')]
+        platform_length = max(set(pf_lengths), key=pf_lengths.count) if pf_lengths else 270  # default 270m
 
-        # Step 7: Get window points for each selected run
+        # Step 6: Random shuffle (only for "All Motormen" mode)
+        if not motorman_hrms_id:
+            random.shuffle(selected_runs)
+
+        # Step 7: Get window points for each run and apply safe zone filter
         results = []
         for run in selected_runs:
             cur.execute(
@@ -555,26 +594,31 @@ def get_braking_analysis_data(station_code: str, direction: str, start_date: str
             )
             points = cur.fetchall()
 
+            # Safe zone filter: skip runs with any point above threshold
+            if safe_zone_only:
+                if not is_run_within_safe_zone(points, run['halt_km'], platform_length):
+                    continue  # Skip this run
+
             results.append({
                 'run_id': run['run_id'],
                 'train_number': run['train_number'],
                 'date_of_working': str(run['date_of_working']),
                 'motorman_name': run['motorman_name'] or 'Unknown',
+                'motorman_hrms_id': run.get('motorman_hrms_id'),
                 'halt_km': run['halt_km'],
                 'points': points
             })
 
-        # Get platform length (most common among selected runs)
-        pf_lengths = [r.get('platform_length_m') for r in selected_runs if r.get('platform_length_m')]
-        platform_length = max(set(pf_lengths), key=pf_lengths.count) if pf_lengths else 270  # default 270m
+            # Stop once we have enough runs (only for "All Motormen" mode)
+            if not motorman_hrms_id and len(results) >= limit:
+                break
 
         cur.close()
         return {
             'route': best_route,
             'train_type': type_label,
-            'halt_km_group': best_group_key,
             'platform_length': platform_length,
-            'total_available': len(halt_km_groups[best_group_key]),
+            'total_available': len(selected_runs),
             'runs': results
         }
     finally:
@@ -605,6 +649,61 @@ def get_stations_with_braking_data(start_date: str, end_date: str) -> List[str]:
         cn.close()
 
 
+def get_motormen_for_station(station_code: str, direction: str, start_date: str, end_date: str) -> List[Dict[str, Any]]:
+    """
+    Get list of motormen who have braking data at a station within the date range.
+    Used for "Specific Motorman" filter in braking report.
+    """
+    train_map = get_train_corridor_map()
+    cn = get_db_connection()
+    try:
+        cur = cn.cursor(dictionary=True)
+
+        # Get all runs for this station
+        cur.execute(
+            """
+            SELECT DISTINCT r.motorman_hrms_id, s.name as motorman_name, r.train_number,
+                   COUNT(DISTINCT r.run_id) as run_count
+            FROM div_sub_spm_runs r
+            JOIN div_sub_spm_station_windows sw ON r.run_id = sw.run_id
+            LEFT JOIN div_staff_master s ON r.motorman_hrms_id = s.hrms_id
+            WHERE sw.station_code = %s
+              AND r.date_of_working BETWEEN %s AND %s
+              AND r.motorman_hrms_id IS NOT NULL
+              AND r.motorman_hrms_id != ''
+            GROUP BY r.motorman_hrms_id, s.name, r.train_number
+            """,
+            (station_code, start_date, end_date),
+        )
+        rows = cur.fetchall()
+        cur.close()
+
+        # Filter by direction using train corridor map
+        motorman_runs = {}
+        for row in rows:
+            train_code = row['train_number']
+            train_info = train_map.get(train_code, {})
+            train_direction = train_info.get('direction', '')
+
+            if train_direction != direction:
+                continue
+
+            hrms_id = row['motorman_hrms_id']
+            if hrms_id not in motorman_runs:
+                motorman_runs[hrms_id] = {
+                    'motorman_hrms_id': hrms_id,
+                    'motorman_name': row['motorman_name'] or 'Unknown',
+                    'run_count': 0
+                }
+            motorman_runs[hrms_id]['run_count'] += row['run_count']
+
+        # Sort by run count descending
+        result = sorted(motorman_runs.values(), key=lambda x: x['run_count'], reverse=True)
+        return result
+    finally:
+        cn.close()
+
+
 # ============ REPORTS: Not Analyzed Features ============
 
 def get_motorman_report_kpi_stats() -> Dict[str, Any]:
@@ -617,8 +716,11 @@ def get_motorman_report_kpi_stats() -> Dict[str, Any]:
     try:
         cur = cn.cursor(dictionary=True)
 
-        # Total analyses count
-        cur.execute("SELECT COUNT(*) as count FROM div_sub_spm_runs")
+        # Total unique runs analyzed (unique by train+date+from+to)
+        cur.execute("""
+            SELECT COUNT(DISTINCT CONCAT(train_number, '|', date_of_working, '|', from_station, '|', to_station)) as count
+            FROM div_sub_spm_runs
+        """)
         total_result = cur.fetchone()
         total_count = total_result['count'] if total_result else 0
 
@@ -627,11 +729,12 @@ def get_motorman_report_kpi_stats() -> Dict[str, Any]:
         distinct_result = cur.fetchone()
         distinct_count = distinct_result['count'] if distinct_result else 0
 
-        # Analyses this month
+        # Unique runs this month - using IST (UTC+5:30)
         cur.execute("""
-            SELECT COUNT(*) as count FROM div_sub_spm_runs
-            WHERE YEAR(analysis_date) = YEAR(CURDATE())
-              AND MONTH(analysis_date) = MONTH(CURDATE())
+            SELECT COUNT(DISTINCT CONCAT(train_number, '|', date_of_working, '|', from_station, '|', to_station)) as count
+            FROM div_sub_spm_runs
+            WHERE YEAR(CONVERT_TZ(analysis_date, '+00:00', '+05:30')) = YEAR(CURDATE())
+              AND MONTH(CONVERT_TZ(analysis_date, '+00:00', '+05:30')) = MONTH(CURDATE())
         """)
         month_result = cur.fetchone()
         month_count = month_result['count'] if month_result else 0
@@ -734,8 +837,10 @@ def get_not_analyzed_3_months() -> List[Dict[str, Any]]:
 
 def get_daily_analysis_trend(year: int = None, month: int = None) -> List[Dict[str, Any]]:
     """
-    Get day-wise analysis count for a given month.
+    Get day-wise unique run count for a given month.
+    Counts unique runs (train+date_of_working+from+to) per day.
     Defaults to current month.
+    Uses IST (UTC+5:30) for date conversion since users work in IST.
     """
     from datetime import datetime
     if year is None:
@@ -748,12 +853,12 @@ def get_daily_analysis_trend(year: int = None, month: int = None) -> List[Dict[s
         cur = cn.cursor(dictionary=True)
         cur.execute("""
             SELECT
-                DAY(analysis_date) as day,
-                COUNT(*) as count
+                DAY(CONVERT_TZ(analysis_date, '+00:00', '+05:30')) as day,
+                COUNT(DISTINCT CONCAT(train_number, '|', date_of_working, '|', from_station, '|', to_station)) as count
             FROM div_sub_spm_runs
-            WHERE YEAR(analysis_date) = %s
-              AND MONTH(analysis_date) = %s
-            GROUP BY DAY(analysis_date)
+            WHERE YEAR(CONVERT_TZ(analysis_date, '+00:00', '+05:30')) = %s
+              AND MONTH(CONVERT_TZ(analysis_date, '+00:00', '+05:30')) = %s
+            GROUP BY DAY(CONVERT_TZ(analysis_date, '+00:00', '+05:30'))
             ORDER BY day
         """, (year, month))
         results = cur.fetchall()
@@ -765,31 +870,32 @@ def get_daily_analysis_trend(year: int = None, month: int = None) -> List[Dict[s
 
 def get_month_comparison() -> Dict[str, Any]:
     """
-    Compare current month's analysis count (up to today's date)
+    Compare current month's unique run count (up to today's date)
     with last month's same period.
+    Uses IST (UTC+5:30) for date conversion since users work in IST.
     """
     cn = get_db_connection()
     try:
         cur = cn.cursor(dictionary=True)
 
-        # Current month count (up to today)
+        # Current month unique runs (up to today) - using IST
         cur.execute("""
-            SELECT COUNT(*) as count
+            SELECT COUNT(DISTINCT CONCAT(train_number, '|', date_of_working, '|', from_station, '|', to_station)) as count
             FROM div_sub_spm_runs
-            WHERE YEAR(analysis_date) = YEAR(CURDATE())
-              AND MONTH(analysis_date) = MONTH(CURDATE())
-              AND DAY(analysis_date) <= DAY(CURDATE())
+            WHERE YEAR(CONVERT_TZ(analysis_date, '+00:00', '+05:30')) = YEAR(CURDATE())
+              AND MONTH(CONVERT_TZ(analysis_date, '+00:00', '+05:30')) = MONTH(CURDATE())
+              AND DAY(CONVERT_TZ(analysis_date, '+00:00', '+05:30')) <= DAY(CURDATE())
         """)
         current_result = cur.fetchone()
         current_count = current_result['count'] if current_result else 0
 
-        # Last month same period (up to same day number)
+        # Last month same period unique runs (up to same day number) - using IST
         cur.execute("""
-            SELECT COUNT(*) as count
+            SELECT COUNT(DISTINCT CONCAT(train_number, '|', date_of_working, '|', from_station, '|', to_station)) as count
             FROM div_sub_spm_runs
-            WHERE YEAR(analysis_date) = YEAR(DATE_SUB(CURDATE(), INTERVAL 1 MONTH))
-              AND MONTH(analysis_date) = MONTH(DATE_SUB(CURDATE(), INTERVAL 1 MONTH))
-              AND DAY(analysis_date) <= DAY(CURDATE())
+            WHERE YEAR(CONVERT_TZ(analysis_date, '+00:00', '+05:30')) = YEAR(DATE_SUB(CURDATE(), INTERVAL 1 MONTH))
+              AND MONTH(CONVERT_TZ(analysis_date, '+00:00', '+05:30')) = MONTH(DATE_SUB(CURDATE(), INTERVAL 1 MONTH))
+              AND DAY(CONVERT_TZ(analysis_date, '+00:00', '+05:30')) <= DAY(CURDATE())
         """)
         last_result = cur.fetchone()
         last_count = last_result['count'] if last_result else 0
