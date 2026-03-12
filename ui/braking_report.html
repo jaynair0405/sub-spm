@@ -8,6 +8,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
     <style>
       :root {
         --brand: #0b3d91;
@@ -344,6 +345,11 @@
               Print / Save PDF
             </button>
           </div>
+          <div class="form-group">
+            <button class="btn btn-primary" id="pptBtn" onclick="downloadPPT()" style="display: none;">
+              Download PPT
+            </button>
+          </div>
         </div>
         <div class="station-boxes" style="margin-top: 16px;">
           <div class="station-box">
@@ -351,16 +357,29 @@
             <div class="station-box-content">
               <div class="form-group">
                 <label>Station</label>
-                <select id="station1Select">
+                <select id="station1Select" onchange="onStationChange(1)">
                   <option value="">-- Select --</option>
                 </select>
               </div>
               <div class="form-group">
                 <label>Direction</label>
                 <div class="radio-group">
-                  <label><input type="radio" name="direction1" value="DN" checked> DN</label>
-                  <label><input type="radio" name="direction1" value="UP"> UP</label>
+                  <label><input type="radio" name="direction1" value="DN" checked onchange="onStationChange(1)"> DN</label>
+                  <label><input type="radio" name="direction1" value="UP" onchange="onStationChange(1)"> UP</label>
                 </div>
+              </div>
+              <div class="form-group">
+                <label>View Mode</label>
+                <select id="mode1Select" onchange="onModeChange(1)">
+                  <option value="all">All Motormen</option>
+                  <option value="specific">Specific Motorman</option>
+                </select>
+              </div>
+              <div class="form-group" id="motorman1Group" style="display: none;">
+                <label>Motorman</label>
+                <select id="motorman1Select">
+                  <option value="">-- Select --</option>
+                </select>
               </div>
             </div>
           </div>
@@ -369,21 +388,34 @@
             <div class="station-box-content">
               <div class="form-group">
                 <label>Station</label>
-                <select id="station2Select">
+                <select id="station2Select" onchange="onStationChange(2)">
                   <option value="">-- Select --</option>
                 </select>
               </div>
               <div class="form-group">
                 <label>Direction</label>
                 <div class="radio-group">
-                  <label><input type="radio" name="direction2" value="DN" checked> DN</label>
-                  <label><input type="radio" name="direction2" value="UP"> UP</label>
+                  <label><input type="radio" name="direction2" value="DN" checked onchange="onStationChange(2)"> DN</label>
+                  <label><input type="radio" name="direction2" value="UP" onchange="onStationChange(2)"> UP</label>
                 </div>
+              </div>
+              <div class="form-group">
+                <label>View Mode</label>
+                <select id="mode2Select" onchange="onModeChange(2)">
+                  <option value="all">All Motormen</option>
+                  <option value="specific">Specific Motorman</option>
+                </select>
+              </div>
+              <div class="form-group" id="motorman2Group" style="display: none;">
+                <label>Motorman</label>
+                <select id="motorman2Select">
+                  <option value="">-- Select --</option>
+                </select>
               </div>
             </div>
           </div>
         </div>
-        <p class="info-text">Select a fortnight, direction, and two stations to compare braking patterns at each station.</p>
+        <p class="info-text">Select a fortnight, direction, and two stations to compare braking patterns. Use "Specific Motorman" to view individual performance.</p>
       </div>
 
       <!-- Loading indicator -->
@@ -418,6 +450,10 @@
       const CHART_API_BASE = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
         ? ""
         : "/spm/sub-spm";
+
+      // Check for admin mode via URL parameter (hidden feature for div_admin)
+      const urlParams = new URLSearchParams(window.location.search);
+      const isAdminMode = urlParams.get('admin') === '1';
 
       // Color palette for 20 lines (distinct colors)
       const LINE_COLORS = [
@@ -509,6 +545,57 @@
         }
       }
 
+      // Handle station/direction change - load motormen if in specific mode
+      async function onStationChange(chartNum) {
+        const mode = document.getElementById(`mode${chartNum}Select`).value;
+        if (mode === 'specific') {
+          await loadMotormen(chartNum);
+        }
+      }
+
+      // Handle mode change
+      async function onModeChange(chartNum) {
+        const mode = document.getElementById(`mode${chartNum}Select`).value;
+        const motormanGroup = document.getElementById(`motorman${chartNum}Group`);
+
+        if (mode === 'specific') {
+          motormanGroup.style.display = 'block';
+          await loadMotormen(chartNum);
+        } else {
+          motormanGroup.style.display = 'none';
+        }
+      }
+
+      // Load motormen for a station
+      async function loadMotormen(chartNum) {
+        const station = document.getElementById(`station${chartNum}Select`).value;
+        const direction = document.querySelector(`input[name="direction${chartNum}"]:checked`).value;
+        const fortnightVal = document.getElementById('fortnightSelect').value;
+
+        if (!station || !fortnightVal) return;
+
+        const [startDate, endDate] = fortnightVal.split('|');
+        const motormanSelect = document.getElementById(`motorman${chartNum}Select`);
+
+        try {
+          motormanSelect.innerHTML = '<option value="">Loading...</option>';
+          const resp = await fetch(`${CHART_API_BASE}/braking-analysis/motormen?station=${station}&direction=${direction}&start_date=${startDate}&end_date=${endDate}`);
+          const data = await resp.json();
+
+          motormanSelect.innerHTML = '<option value="">-- Select --</option>';
+          if (data.motormen && data.motormen.length > 0) {
+            data.motormen.forEach(m => {
+              motormanSelect.innerHTML += `<option value="${m.motorman_hrms_id}">${m.motorman_name} (${m.run_count} runs)</option>`;
+            });
+          } else {
+            motormanSelect.innerHTML = '<option value="">No motormen found</option>';
+          }
+        } catch (err) {
+          console.error('Error loading motormen:', err);
+          motormanSelect.innerHTML = '<option value="">Error loading</option>';
+        }
+      }
+
       // Generate the report
       async function generateReport() {
         const fortnightVal = document.getElementById('fortnightSelect').value;
@@ -518,8 +605,24 @@
         const direction2 = document.querySelector('input[name="direction2"]:checked').value;
         const runCount = document.getElementById('runCountSelect').value;
 
+        // Get mode and motorman for each chart
+        const mode1 = document.getElementById('mode1Select').value;
+        const mode2 = document.getElementById('mode2Select').value;
+        const motorman1 = mode1 === 'specific' ? document.getElementById('motorman1Select').value : '';
+        const motorman2 = mode2 === 'specific' ? document.getElementById('motorman2Select').value : '';
+
         if (!fortnightVal || !station1 || !station2) {
           alert('Please select fortnight and both stations');
+          return;
+        }
+
+        // Validate motorman selection if in specific mode
+        if (mode1 === 'specific' && !motorman1) {
+          alert('Please select a motorman for Chart 1');
+          return;
+        }
+        if (mode2 === 'specific' && !motorman2) {
+          alert('Please select a motorman for Chart 2');
           return;
         }
 
@@ -529,12 +632,23 @@
         document.getElementById('loading').classList.add('active');
         document.getElementById('chartsContainer').style.display = 'none';
         document.getElementById('printBtn').style.display = 'none';
+        document.getElementById('pptBtn').style.display = 'none';
 
         try {
-          // Fetch data for both stations in parallel (each with its own direction)
+          // Safe zone filter: admin sees all runs, others see only safe zone runs
+          const safeZoneParam = isAdminMode ? 'false' : 'true';
+
+          // Build URLs with optional motorman parameter
+          let url1 = `${CHART_API_BASE}/braking-analysis/data?station=${station1}&direction=${direction1}&start_date=${startDate}&end_date=${endDate}&limit=${runCount}&safe_zone_only=${safeZoneParam}`;
+          let url2 = `${CHART_API_BASE}/braking-analysis/data?station=${station2}&direction=${direction2}&start_date=${startDate}&end_date=${endDate}&limit=${runCount}&safe_zone_only=${safeZoneParam}`;
+
+          if (motorman1) url1 += `&motorman_hrms_id=${motorman1}`;
+          if (motorman2) url2 += `&motorman_hrms_id=${motorman2}`;
+
+          // Fetch data for both stations in parallel
           const [data1, data2] = await Promise.all([
-            fetch(`${CHART_API_BASE}/braking-analysis/data?station=${station1}&direction=${direction1}&start_date=${startDate}&end_date=${endDate}&limit=${runCount}`).then(r => r.json()),
-            fetch(`${CHART_API_BASE}/braking-analysis/data?station=${station2}&direction=${direction2}&start_date=${startDate}&end_date=${endDate}&limit=${runCount}`).then(r => r.json())
+            fetch(url1).then(r => r.json()),
+            fetch(url2).then(r => r.json())
           ]);
 
           // Hide loading
@@ -545,8 +659,19 @@
           const type2 = data2.train_type ? `${data2.train_type}` : '';
           const count1 = data1.runs ? data1.runs.length : 0;
           const count2 = data2.runs ? data2.runs.length : 0;
-          document.getElementById('chart1Title').textContent = `BRAKING ANALYSIS AT ${station1} (${direction1} - ${type1}) - ${count1} runs`;
-          document.getElementById('chart2Title').textContent = `BRAKING ANALYSIS AT ${station2} (${direction2} - ${type2}) - ${count2} runs`;
+
+          // Get motorman name for title if in specific mode
+          const motorman1Name = motorman1 ? document.getElementById('motorman1Select').selectedOptions[0]?.text.split(' (')[0] : '';
+          const motorman2Name = motorman2 ? document.getElementById('motorman2Select').selectedOptions[0]?.text.split(' (')[0] : '';
+
+          let title1 = `BRAKING ANALYSIS AT ${station1} (${direction1} - ${type1}) - ${count1} runs`;
+          let title2 = `BRAKING ANALYSIS AT ${station2} (${direction2} - ${type2}) - ${count2} runs`;
+
+          if (motorman1Name) title1 = `${motorman1Name} - ${station1} (${direction1}) - ${count1} runs`;
+          if (motorman2Name) title2 = `${motorman2Name} - ${station2} (${direction2}) - ${count2} runs`;
+
+          document.getElementById('chart1Title').textContent = title1;
+          document.getElementById('chart2Title').textContent = title2;
 
           // Update print header with date range
           const formatDate = (d) => {
@@ -558,6 +683,7 @@
           // IMPORTANT: Show container FIRST so charts get proper width
           document.getElementById('chartsContainer').style.display = 'grid';
           document.getElementById('printBtn').style.display = 'inline-block';
+          document.getElementById('pptBtn').style.display = 'inline-block';
 
           // Small delay to ensure container is visible before rendering
           setTimeout(() => {
@@ -739,6 +865,14 @@
       // Initialize on page load
       document.addEventListener('DOMContentLoaded', () => {
         initFortnightDropdown();
+
+        // Show admin mode indicator (subtle, only visible to admin)
+        if (isAdminMode) {
+          const subtitle = document.querySelector('header span');
+          if (subtitle) {
+            subtitle.textContent += ' [Admin View - All Runs]';
+          }
+        }
       });
 
       // Resize charts for print
@@ -750,6 +884,95 @@
         if (chart1Instance) chart1Instance.resize();
         if (chart2Instance) chart2Instance.resize();
       });
+
+      // Download PPT function
+      async function downloadPPT() {
+        if (!chart1Instance && !chart2Instance) {
+          alert('Please generate the report first');
+          return;
+        }
+
+        // Create presentation
+        const pptx = new PptxGenJS();
+        pptx.layout = 'LAYOUT_16x9';
+        pptx.title = 'Braking Pattern Analysis Report';
+        pptx.author = 'CRTMS - TRO-BB Division';
+
+        // Get date range from fortnight select
+        const fortnightVal = document.getElementById('fortnightSelect').value;
+        const [startDate, endDate] = fortnightVal ? fortnightVal.split('|') : ['', ''];
+        const formatDate = (d) => {
+          if (!d) return '';
+          const [y, m, day] = d.split('-');
+          return `${day}/${m}/${y}`;
+        };
+        const dateRange = `${formatDate(startDate)} to ${formatDate(endDate)}`;
+
+        // Helper function to add a chart slide
+        function addChartSlide(chartInstance, chartNum) {
+          if (!chartInstance) return;
+
+          const slide = pptx.addSlide();
+
+          // Get chart title from the title element
+          const titleEl = document.getElementById(`chart${chartNum}Title`);
+          const titleText = titleEl ? titleEl.textContent : `Chart ${chartNum}`;
+
+          // Slide title
+          slide.addText('Braking Pattern Analysis', {
+            x: 0.5, y: 0.3, w: 9, h: 0.4,
+            fontSize: 20, bold: true, color: '0b3d91'
+          });
+
+          // Subtitle: Station, Direction, Train Type
+          slide.addText(titleText, {
+            x: 0.5, y: 0.7, w: 9, h: 0.3,
+            fontSize: 14, color: '333333'
+          });
+
+          // Date range
+          slide.addText(`Period: ${dateRange}`, {
+            x: 0.5, y: 1.0, w: 9, h: 0.25,
+            fontSize: 11, color: '666666'
+          });
+
+          // Get chart as base64 image
+          const chartImage = chartInstance.getDataURL({
+            type: 'png',
+            pixelRatio: 2,
+            backgroundColor: '#fff'
+          });
+
+          // Add chart image - PptxGenJS expects format: "image/png;base64,DATA"
+          const base64Data = chartImage.replace(/^data:/, '');
+          slide.addImage({
+            data: base64Data,
+            x: 0.3, y: 1.4, w: 9.4, h: 3.8
+          });
+
+          // Footer left
+          slide.addText('@Sr.DEE TRO-BB Division - report from crtms.in', {
+            x: 0.5, y: 5.3, w: 5, h: 0.2,
+            fontSize: 8, color: '888888'
+          });
+
+          // Footer right
+          slide.addText('developed by Jayakumar M D MMan KYN', {
+            x: 5.5, y: 5.3, w: 4, h: 0.2,
+            fontSize: 8, color: '888888', align: 'right'
+          });
+        }
+
+        // Add slides for each chart
+        addChartSlide(chart1Instance, 1);
+        addChartSlide(chart2Instance, 2);
+
+        // Generate filename
+        const filename = `Braking_Analysis_${startDate}_to_${endDate}.pptx`;
+
+        // Download
+        pptx.writeFile({ fileName: filename });
+      }
     </script>
   </body>
 </html>
