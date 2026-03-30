@@ -476,9 +476,78 @@
   font-weight: 500;
 }
 
+/* Confirm & Save Button */
+.btn-confirm {
+  background: #28a745;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  display: none;
+  gap: 6px;
+  align-items: center;
+  font-size: 15px;
+}
+.btn-confirm:hover {
+  background: #218838;
+}
+.btn-confirm.visible {
+  display: inline-flex;
+}
+.btn-confirm:disabled {
+  background: #6c757d;
+  cursor: not-allowed;
+}
+
+/* Discard Button */
+.btn-discard {
+  background: #dc3545;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 500;
+  display: none;
+  gap: 6px;
+  align-items: center;
+  margin-left: 8px;
+}
+.btn-discard:hover {
+  background: #c82333;
+}
+.btn-discard.visible {
+  display: inline-flex;
+}
+
+/* Re-analysis Warning Banner */
+.reanalysis-banner {
+  background: #fff3cd;
+  border: 2px solid #dc3545;
+  border-radius: 6px;
+  padding: 10px 16px;
+  margin: 0 16px 16px 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.reanalysis-icon {
+  font-size: 20px;
+}
+.reanalysis-text {
+  color: #dc3545;
+  font-weight: 600;
+  font-size: 14px;
+}
+.reanalysis-text span {
+  font-weight: 700;
+}
+
 /* PDF Export Button */
 .btn-pdf {
-  background: #28a745;
+  background: #007bff;
   color: white;
   border: none;
   padding: 10px 20px;
@@ -490,7 +559,7 @@
   align-items: center;
 }
 .btn-pdf:hover {
-  background: #218838;
+  background: #0056b3;
 }
 .btn-pdf.visible {
   display: inline-flex;
@@ -757,6 +826,19 @@
             >
               Reset Form
             </button>
+            <button type="button" id="confirmBtn" class="btn-confirm">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+              Confirm & Save
+            </button>
+            <button type="button" id="discardBtn" class="btn-discard">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+              </svg>
+              Discard
+            </button>
             <button type="button" id="pdfBtn" class="btn-pdf">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
@@ -805,6 +887,12 @@
       <!-- <span class="report-header-badge">CENTRAL RAILWAY • MUMBAI</span> -->
     </div>
     </div>
+
+  <!-- Re-analysis warning banner (shown when replacing previous analysis) -->
+  <div id="reanalysisBanner" class="reanalysis-banner" style="display: none;">
+    <span class="reanalysis-icon">⚠️</span>
+    <span class="reanalysis-text">RE-ANALYSIS: This run was previously analyzed on <span id="prevAnalysisDate">-</span></span>
+  </div>
 
   <div class="meta-grid">
     <div class="meta-item">
@@ -1668,6 +1756,7 @@
         ? ""
         : "/spm/sub-spm";
       let currentRunId = null;
+      let currentDuplicateInfo = null; // Store duplicate info for warning dialog and PDF banner
       let staffData = {}; // Store staff data for nominated CLI lookup
       let staffSelect = null; // Tom Select instance for staff dropdown
 
@@ -1690,6 +1779,26 @@
         document.getElementById("pdfHeader").style.display = "flex";
         // Trigger browser print dialog (user can save as PDF)
         window.print();
+      }
+
+      // Show/hide Confirm & Discard buttons (shown after Process Run, before confirm)
+      function showConfirmButtons() {
+        const confirmBtn = document.getElementById("confirmBtn");
+        const discardBtn = document.getElementById("discardBtn");
+        // Reset button state for fresh analysis
+        if (confirmBtn) {
+          confirmBtn.disabled = false;
+          confirmBtn.textContent = "Confirm & Save";
+          confirmBtn.classList.add("visible");
+        }
+        if (discardBtn) discardBtn.classList.add("visible");
+      }
+
+      function hideConfirmButtons() {
+        const confirmBtn = document.getElementById("confirmBtn");
+        const discardBtn = document.getElementById("discardBtn");
+        if (confirmBtn) confirmBtn.classList.remove("visible");
+        if (discardBtn) discardBtn.classList.remove("visible");
       }
 
       // Show/hide PDF button
@@ -2443,6 +2552,7 @@
         showLoading("Uploading and analyzing SPM data...");
         hidePdfButton();
         hideCsvButton();
+        hideConfirmButtons();
 
         try {
           // Upload file first
@@ -2451,9 +2561,19 @@
           if (uploadResult && uploadResult.success) {
             currentRunId = uploadResult.run_id;
 
-            // Show toast if existing record was replaced
-            if (uploadResult.replaced_existing) {
-              showToast("Previous analysis replaced with new data");
+            // Store duplicate info for warning and PDF banner
+            currentDuplicateInfo = {
+              has_existing_duplicate: uploadResult.has_existing_duplicate,
+              existing_analysis_date: uploadResult.existing_analysis_date
+            };
+
+            // Show/hide re-analysis banner
+            const reanalysisBanner = document.getElementById("reanalysisBanner");
+            if (currentDuplicateInfo.has_existing_duplicate && currentDuplicateInfo.existing_analysis_date) {
+              document.getElementById("prevAnalysisDate").textContent = currentDuplicateInfo.existing_analysis_date;
+              reanalysisBanner.style.display = "flex";
+            } else {
+              reanalysisBanner.style.display = "none";
             }
 
             // Show success message
@@ -2537,7 +2657,7 @@
     if (uploadResult.start_time) document.getElementById("metaDepTime").textContent = uploadResult.start_time;
     if (uploadResult.end_time) document.getElementById("metaArrTime").textContent = uploadResult.end_time;
     if (uploadResult.duration) document.getElementById("metaRunTime").textContent = uploadResult.duration;
-            let message = `✓ Upload successful!\n\n` +
+            let message = `✓ Analysis Preview\n\n` +
               `Rows: ${uploadResult.rows_processed}\n` +
               `Max Speed: ${summary.max_speed} km/h\n` +
               `Avg Speed: ${summary.avg_speed.toFixed(1)} km/h\n` +
@@ -2558,6 +2678,10 @@
                 if (vsum.minor > 0) message += `  • Minor: ${vsum.minor}\n`;
               }
             }
+
+            message += `\n─────────────────────────\n`;
+            message += `⚠️ NOT SAVED YET\n`;
+            message += `Review charts, then click "Confirm & Save"`;
 
             alert(message);
 
@@ -2580,9 +2704,11 @@
             showLoading("Loading charts...");
             await loadChartData(currentRunId);
 
-            // Show PDF and CSV export buttons after successful processing
-            showPdfButton();
-            showCsvButton();
+            // Show Confirm & Discard buttons (NOT PDF/CSV yet - user must confirm first)
+            showConfirmButtons();
+            // Hide PDF/CSV until confirmed
+            hidePdfButton();
+            hideCsvButton();
           }
         } catch (err) {
           console.error(err);
@@ -2591,6 +2717,87 @@
           hideLoading();
           processBtn.disabled = false;
           processBtn.textContent = "Process Run";
+        }
+      });
+
+      // Confirm & Save button click handler
+      document.getElementById("confirmBtn").addEventListener("click", async () => {
+        if (!currentRunId) {
+          alert("No run to confirm");
+          return;
+        }
+
+        // Check if duplicate exists and warn user
+        if (currentDuplicateInfo && currentDuplicateInfo.has_existing_duplicate) {
+          const trainNo = document.getElementById("trainNumber").value || "this train";
+          const dateOfWorking = document.getElementById("dateOfWorking").value || "";
+          const prevDate = currentDuplicateInfo.existing_analysis_date || "unknown date";
+
+          const confirmReplace = confirm(
+            `⚠️ DUPLICATE DETECTED\n\n` +
+            `Train ${trainNo} (${dateOfWorking}) was already analyzed on:\n` +
+            `${prevDate}\n\n` +
+            `Do you want to REPLACE the previous analysis?`
+          );
+
+          if (!confirmReplace) {
+            return; // User cancelled, don't save
+          }
+        }
+
+        const confirmBtn = document.getElementById("confirmBtn");
+        confirmBtn.disabled = true;
+        confirmBtn.textContent = "Saving...";
+
+        try {
+          const response = await fetch(`${CHART_API_BASE}/api/confirm/${currentRunId}`, {
+            method: "POST",
+          });
+
+          if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(errorText);
+          }
+
+          const result = await response.json();
+
+          if (result.success) {
+            // Hide Confirm/Discard buttons
+            hideConfirmButtons();
+            // Show PDF/CSV export buttons
+            showPdfButton();
+            showCsvButton();
+
+            showToast("✓ Analysis confirmed and saved to database");
+
+            if (result.replaced_existing) {
+              showToast("Previous analysis was replaced with new data", 5000);
+            }
+
+            // Clear duplicate info
+            currentDuplicateInfo = null;
+          }
+        } catch (err) {
+          console.error(err);
+          alert("Failed to save: " + err.message);
+          confirmBtn.disabled = false;
+          confirmBtn.textContent = "Confirm & Save";
+        }
+      });
+
+      // Discard button click handler
+      document.getElementById("discardBtn").addEventListener("click", () => {
+        if (confirm("Discard this analysis? Data will not be saved.")) {
+          // Hide confirm buttons
+          hideConfirmButtons();
+          // Clear the run from memory (optional - call delete endpoint)
+          if (currentRunId) {
+            fetch(`${CHART_API_BASE}/runs/${currentRunId}`, { method: "DELETE" }).catch(() => {});
+          }
+          currentRunId = null;
+          // Reset form
+          document.getElementById("clearBtn").click();
+          showToast("Analysis discarded");
         }
       });
 
@@ -2614,8 +2821,11 @@
         // Hide report sections
         document.getElementById("pdfHeader").style.display = "none";
         document.getElementById("reportMetadata").style.display = "none";
+        document.getElementById("reanalysisBanner").style.display = "none";
+        currentDuplicateInfo = null;
         hidePdfButton();
         hideCsvButton();
+        hideConfirmButtons();
         // Clear charts
         disposeSegmentCharts();
         disposePlatformEntryCharts();
