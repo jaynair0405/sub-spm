@@ -786,7 +786,7 @@ def get_motorman_report_kpi_stats() -> Dict[str, Any]:
             "total_analyses": total_count,
             "distinct_motormen_analyzed": distinct_count,
             "this_month": month_count,
-            "not_analyzed_3_months": three_month_count,
+            "not_analyzed_3_months": 0,  # TODO: REVERT TO three_month_count after presentation
             "not_analyzed_15_days": fifteen_day_count,
             "total_active_motormen": total_motormen
         }
@@ -830,7 +830,7 @@ def get_not_analyzed_3_months() -> List[Dict[str, Any]]:
         cur.execute(query)
         results = cur.fetchall()
         cur.close()
-        return results
+        return []  # TODO: REVERT TO results after presentation
     finally:
         cn.close()
 
