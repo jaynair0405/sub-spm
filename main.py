@@ -1553,6 +1553,45 @@ async def api_get_report_kpi_stats():
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.get("/api/spm-stats")
+async def api_get_spm_stats():
+    """
+    Get SPM analysis statistics for dashboard cards (yesterday and total counts).
+    """
+    from db_config import get_db_connection
+    try:
+        cn = get_db_connection()
+        cur = cn.cursor(dictionary=True)
+
+        # Get yesterday's count (unique runs)
+        cur.execute("""
+            SELECT COUNT(DISTINCT CONCAT(train_number, '|', date_of_working, '|', from_station, '|', to_station)) as count
+            FROM div_sub_spm_runs
+            WHERE DATE(CONVERT_TZ(analysis_date, '+00:00', '+05:30')) = CURDATE() - INTERVAL 1 DAY
+        """)
+        yesterday_result = cur.fetchone()
+        yesterday_count = yesterday_result['count'] if yesterday_result else 0
+
+        # Get total count (unique runs)
+        cur.execute("""
+            SELECT COUNT(DISTINCT CONCAT(train_number, '|', date_of_working, '|', from_station, '|', to_station)) as count
+            FROM div_sub_spm_runs
+        """)
+        total_result = cur.fetchone()
+        total_count = total_result['count'] if total_result else 0
+
+        cur.close()
+        cn.close()
+
+        return {
+            "success": True,
+            "yesterday": yesterday_count,
+            "total": total_count
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.get("/api/reports/not-analyzed-3months")
 async def api_get_not_analyzed_3months():
     """
