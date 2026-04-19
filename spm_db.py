@@ -767,6 +767,7 @@ def get_motorman_report_kpi_stats() -> Dict[str, Any]:
             WHERE sm.designation_id = 8
               AND sm.status = 'Active'
               AND DATEDIFF(CURDATE(), a.last_analysis) > 15
+              AND DATEDIFF(CURDATE(), a.last_analysis) <= 90
         """)
         fifteen_day_result = cur.fetchone()
         fifteen_day_count = fifteen_day_result['count'] if fifteen_day_result else 0
@@ -945,6 +946,7 @@ def get_not_analyzed_15_days() -> List[Dict[str, Any]]:
             WHERE sm.designation_id = 8
               AND sm.status = 'Active'
               AND DATEDIFF(CURDATE(), a.last_analysis) > 15
+              AND DATEDIFF(CURDATE(), a.last_analysis) <= 90
             ORDER BY days_since DESC
         """
 
@@ -952,5 +954,260 @@ def get_not_analyzed_15_days() -> List[Dict[str, Any]]:
         results = cur.fetchall()
         cur.close()
         return results
+    finally:
+        cn.close()
+
+
+def get_motorman_working_history(start_date: str, end_date: str, motorman_hrms_id: str = None,
+                                  station: str = None, section: str = None,
+                                  train_number: str = None, unit_no: str = None) -> List[Dict[str, Any]]:
+    """
+    Get motorman working history - list of runs with date, train, from, to.
+
+    Args:
+        start_date: Start date (YYYY-MM-DD)
+        end_date: End date (YYYY-MM-DD)
+        motorman_hrms_id: Optional - filter for specific motorman
+        station: Optional - filter by from_station, to_station, OR intermediate station (station_windows)
+        section: Optional - filter by section (e.g., 'CSMT-KYN')
+        train_number: Optional - filter by train number (partial match)
+        unit_no: Optional - filter by unit number (partial match)
+    """
+    cn = get_db_connection()
+    try:
+        cur = cn.cursor(dictionary=True)
+
+        # Use DISTINCT and LEFT JOIN with station_windows when station filter is provided
+        # This finds runs where motorman started at, ended at, OR passed through the station
+        query = """
+            SELECT DISTINCT
+                r.date_of_working,
+                r.train_number,
+                r.unit_no,
+                r.from_station,
+                r.to_station,
+                CONCAT(r.from_station, '-', r.to_station) AS section,
+                s.name AS motorman_name,
+                r.motorman_hrms_id,
+                s.current_cms_id AS motorman_cms_id,
+                DATE(CONVERT_TZ(r.analysis_date, '+00:00', '+05:30')) AS analysis_date
+            FROM div_sub_spm_runs r
+            LEFT JOIN div_staff_master s ON r.motorman_hrms_id = s.hrms_id
+        """
+        params = []
+
+        # Add station_windows join only when station filter is provided
+        if station:
+            query += " LEFT JOIN div_sub_spm_station_windows sw ON r.run_id = sw.run_id"
+
+        query += " WHERE r.date_of_working BETWEEN %s AND %s"
+        params.extend([start_date, end_date])
+
+        if motorman_hrms_id:
+            query += " AND r.motorman_hrms_id = %s"
+            params.append(motorman_hrms_id)
+
+        if station:
+            # Check origin, destination, OR intermediate station
+            query += " AND (r.from_station = %s OR r.to_station = %s OR sw.station_code = %s)"
+            params.extend([station, station, station])
+
+        if section:
+            query += " AND CONCAT(r.from_station, '-', r.to_station) = %s"
+            params.append(section)
+
+        if train_number:
+            query += " AND r.train_number LIKE %s"
+            params.append(f"%{train_number}%")
+
+        if unit_no:
+            query += " AND r.unit_no LIKE %s"
+            params.append(f"%{unit_no}%")
+
+        query += " ORDER BY r.date_of_working DESC, r.analysis_date DESC"
+
+        cur.execute(query, params)
+        results = cur.fetchall()
+        cur.close()
+        return results
+    finally:
+        cn.close()
+
+
+def get_motorman_abnormalities(start_date: str, end_date: str, motorman_hrms_id: str = None,
+                                station: str = None, section: str = None,
+                                train_number: str = None, unit_no: str = None) -> List[Dict[str, Any]]:
+    """
+    Get runs with abnormalities for motorman(s).
+    Parses abnormality_noticed text to categorize abnormality types.
+
+    Args:
+        start_date: Start date (YYYY-MM-DD)
+        end_date: End date (YYYY-MM-DD)
+        motorman_hrms_id: Optional - filter for specific motorman
+        station: Optional - filter by from_station, to_station, OR intermediate station (station_windows)
+        section: Optional - filter by section (e.g., 'CSMT-KYN')
+        train_number: Optional - filter by train number (partial match)
+        unit_no: Optional - filter by unit number (partial match)
+    """
+    cn = get_db_connection()
+    try:
+        cur = cn.cursor(dictionary=True)
+
+        # Use DISTINCT and LEFT JOIN with station_windows when station filter is provided
+        # This finds runs where motorman started at, ended at, OR passed through the station
+        query = """
+            SELECT DISTINCT
+                r.date_of_working,
+                r.train_number,
+                r.unit_no,
+                r.from_station,
+                r.to_station,
+                CONCAT(r.from_station, '-', r.to_station) AS section,
+                s.name AS motorman_name,
+                r.motorman_hrms_id,
+                s.current_cms_id AS motorman_cms_id,
+                r.abnormality_noticed,
+                DATE(CONVERT_TZ(r.analysis_date, '+00:00', '+05:30')) AS analysis_date
+            FROM div_sub_spm_runs r
+            LEFT JOIN div_staff_master s ON r.motorman_hrms_id = s.hrms_id
+        """
+        params = []
+
+        # Add station_windows join only when station filter is provided
+        if station:
+            query += " LEFT JOIN div_sub_spm_station_windows sw ON r.run_id = sw.run_id"
+
+        query += """
+            WHERE r.date_of_working BETWEEN %s AND %s
+              AND r.abnormality_noticed IS NOT NULL
+              AND r.abnormality_noticed != ''
+              AND r.abnormality_noticed != 'NO ABNORMALITY'
+        """
+        params.extend([start_date, end_date])
+
+        if motorman_hrms_id:
+            query += " AND r.motorman_hrms_id = %s"
+            params.append(motorman_hrms_id)
+
+        if station:
+            # Check origin, destination, OR intermediate station
+            query += " AND (r.from_station = %s OR r.to_station = %s OR sw.station_code = %s)"
+            params.extend([station, station, station])
+
+        if section:
+            query += " AND CONCAT(r.from_station, '-', r.to_station) = %s"
+            params.append(section)
+
+        if train_number:
+            query += " AND r.train_number LIKE %s"
+            params.append(f"%{train_number}%")
+
+        if unit_no:
+            query += " AND r.unit_no LIKE %s"
+            params.append(f"%{unit_no}%")
+
+        query += " ORDER BY r.date_of_working DESC, r.analysis_date DESC"
+
+        cur.execute(query, params)
+        rows = cur.fetchall()
+        cur.close()
+
+        # Parse abnormality text and categorize
+        results = []
+        for row in rows:
+            abnormality_text = row.get('abnormality_noticed', '')
+            abnormality_type = _categorize_abnormality(abnormality_text)
+            results.append({
+                'date_of_working': row['date_of_working'],
+                'train_number': row['train_number'],
+                'unit_no': row['unit_no'],
+                'from_station': row['from_station'],
+                'to_station': row['to_station'],
+                'section': row['section'],
+                'motorman_name': row['motorman_name'],
+                'motorman_hrms_id': row['motorman_hrms_id'],
+                'motorman_cms_id': row['motorman_cms_id'],
+                'abnormality_type': abnormality_type,
+                'abnormality_details': abnormality_text,
+                'analysis_date': row['analysis_date']
+            })
+
+        return results
+    finally:
+        cn.close()
+
+
+def _categorize_abnormality(text: str) -> str:
+    """Categorize abnormality based on text patterns."""
+    if not text:
+        return 'Unknown'
+
+    text_upper = text.upper()
+
+    # Check patterns in order of specificity
+    if 'PSR' in text_upper or 'MPS' in text_upper:
+        return 'PSR/MPS Violation'
+    elif 'PF ENTRY SPEED' in text_upper or 'PLATFORM ENTRY' in text_upper:
+        return 'Platform Entry Violation'
+    elif 'MID PF SPEED' in text_upper or 'MID PLATFORM' in text_upper:
+        return 'Mid Platform Violation'
+    elif 'ONE COACH' in text_upper:
+        return 'One Coach Violation'
+    elif 'NO BRAKE FEEL' in text_upper or 'BRAKE TEST' in text_upper:
+        return 'No Brake Test'
+    else:
+        return 'Other'
+
+
+def get_available_sections(start_date: str, end_date: str) -> List[str]:
+    """Get distinct sections (from-to combinations) from runs in date range."""
+    cn = get_db_connection()
+    try:
+        cur = cn.cursor(dictionary=True)
+
+        query = """
+            SELECT DISTINCT CONCAT(from_station, '-', to_station) AS section
+            FROM div_sub_spm_runs
+            WHERE date_of_working BETWEEN %s AND %s
+            ORDER BY section
+        """
+
+        cur.execute(query, [start_date, end_date])
+        results = cur.fetchall()
+        cur.close()
+        return [r['section'] for r in results]
+    finally:
+        cn.close()
+
+
+def get_available_stations(start_date: str, end_date: str) -> List[str]:
+    """Get distinct stations from runs in date range (from, to, and intermediate stations)."""
+    cn = get_db_connection()
+    try:
+        cur = cn.cursor(dictionary=True)
+
+        # Include origin, destination, AND intermediate stations from station_windows
+        query = """
+            SELECT DISTINCT station_code AS station
+            FROM (
+                SELECT from_station AS station_code FROM div_sub_spm_runs
+                WHERE date_of_working BETWEEN %s AND %s
+                UNION
+                SELECT to_station AS station_code FROM div_sub_spm_runs
+                WHERE date_of_working BETWEEN %s AND %s
+                UNION
+                SELECT sw.station_code FROM div_sub_spm_station_windows sw
+                JOIN div_sub_spm_runs r ON sw.run_id = r.run_id
+                WHERE r.date_of_working BETWEEN %s AND %s
+            ) AS stations
+            WHERE station_code IS NOT NULL
+            ORDER BY station
+        """
+
+        cur.execute(query, [start_date, end_date, start_date, end_date, start_date, end_date])
+        results = cur.fetchall()
+        cur.close()
+        return [r['station'] for r in results]
     finally:
         cn.close()

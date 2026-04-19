@@ -8,7 +8,9 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    <link href="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/css/tom-select.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/js/tom-select.complete.min.js"></script>
     <style>
       :root {
         --brand: #0b3d91;
@@ -257,6 +259,72 @@
         color: #6b7280;
       }
 
+      /* Filter Form Styling */
+      .filter-form {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-bottom: 16px;
+        padding: 16px;
+        background: var(--brand-soft);
+        border-radius: 10px;
+        align-items: flex-end;
+      }
+      .filter-form .form-group {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+      .filter-form label {
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: var(--muted);
+      }
+      .filter-form select,
+      .filter-form input[type="date"],
+      .filter-form input[type="text"] {
+        padding: 8px 12px;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        font-size: 0.9rem;
+        background: #fff;
+        min-width: 140px;
+      }
+      .filter-form input[type="text"] {
+        min-width: auto;
+      }
+      .filter-form select:focus,
+      .filter-form input:focus {
+        outline: none;
+        border-color: var(--brand);
+        box-shadow: 0 0 0 2px rgba(11, 61, 145, 0.1);
+      }
+      .filter-form .btn {
+        height: 38px;
+      }
+      /* Tom Select customization */
+      .filter-form .ts-wrapper {
+        min-width: 220px;
+      }
+      .filter-form .ts-wrapper.single .ts-control {
+        padding: 6px 10px;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        background: #fff;
+      }
+      .filter-form .ts-wrapper.single .ts-control:focus {
+        border-color: var(--brand);
+      }
+      .ts-dropdown {
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      }
+      .ts-dropdown .option.active {
+        background: var(--brand-soft);
+        color: var(--brand);
+      }
+
       @media print {
         body { background: #fff; }
         header, .refresh-bar, .btn { display: none; }
@@ -385,6 +453,152 @@
               </thead>
               <tbody id="table-15days">
                 <tr><td colspan="7" class="loading">Loading...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </details>
+
+        <!-- Motorman Working History -->
+        <details id="workingHistorySection">
+          <summary>
+            <div class="summary-content">
+              <i class="fa-solid fa-list-check" style="color: var(--brand);"></i>
+              <span>Motorman Working History</span>
+            </div>
+            <span class="badge" style="background: var(--brand-soft); color: var(--brand);" id="badge-history">Search to view</span>
+          </summary>
+          <div class="table-wrapper" style="padding: 16px 20px;">
+            <!-- Filter Form -->
+            <div class="filter-form">
+              <div class="form-group">
+                <label>Motorman</label>
+                <select id="historyMotormanSelect">
+                  <option value="">-- All Motormen --</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>From Date</label>
+                <input type="date" id="historyStartDate" onchange="loadFilterOptions('history')" />
+              </div>
+              <div class="form-group">
+                <label>To Date</label>
+                <input type="date" id="historyEndDate" onchange="loadFilterOptions('history')" />
+              </div>
+              <div class="form-group">
+                <label>Station</label>
+                <select id="historyStation" onchange="onStationChange('history')">
+                  <option value="">-- All --</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Section</label>
+                <select id="historySection" onchange="onSectionChange('history')">
+                  <option value="">-- All --</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Train No</label>
+                <input type="text" id="historyTrainNumber" placeholder="e.g. K40" style="width: 80px;" />
+              </div>
+              <div class="form-group">
+                <label>Unit No</label>
+                <input type="text" id="historyUnitNo" placeholder="e.g.5001" style="width: 80px;" />
+              </div>
+              <div class="form-group">
+                <button class="btn btn-primary" onclick="loadWorkingHistory()">
+                  <i class="fa-solid fa-search"></i> Search
+                </button>
+              </div>
+            </div>
+            <!-- Results Table -->
+            <table>
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Date of Working</th>
+                  <th>Train No</th>
+                  <th>Unit No</th>
+                  <th>From</th>
+                  <th>To</th>
+                  <th>Motorman</th>
+                  <th>Analysis Date</th>
+                </tr>
+              </thead>
+              <tbody id="table-history">
+                <tr><td colspan="8" class="empty-state">Select filters and click Search</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </details>
+
+        <!-- Abnormality Report -->
+        <details id="abnormalityReportSection">
+          <summary>
+            <div class="summary-content">
+              <i class="fa-solid fa-triangle-exclamation" style="color: var(--danger);"></i>
+              <span>Abnormality Report</span>
+            </div>
+            <span class="badge badge-danger" id="badge-abnormality">Search to view</span>
+          </summary>
+          <div class="table-wrapper" style="padding: 16px 20px;">
+            <!-- Filter Form -->
+            <div class="filter-form">
+              <div class="form-group">
+                <label>Motorman</label>
+                <select id="abnormalityMotormanSelect">
+                  <option value="">-- All Motormen --</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>From Date</label>
+                <input type="date" id="abnormalityStartDate" onchange="loadFilterOptions('abnormality')" />
+              </div>
+              <div class="form-group">
+                <label>To Date</label>
+                <input type="date" id="abnormalityEndDate" onchange="loadFilterOptions('abnormality')" />
+              </div>
+              <div class="form-group">
+                <label>Station</label>
+                <select id="abnormalityStation" onchange="onStationChange('abnormality')">
+                  <option value="">-- All --</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Section</label>
+                <select id="abnormalitySection" onchange="onSectionChange('abnormality')">
+                  <option value="">-- All --</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Train No</label>
+                <input type="text" id="abnormalityTrainNumber" placeholder="e.g. K40" style="width: 80px;" />
+              </div>
+              <div class="form-group">
+                <label>Unit No</label>
+                <input type="text" id="abnormalityUnitNo" placeholder="e.g. 5001" style="width: 80px;" />
+              </div>
+              <div class="form-group">
+                <button class="btn btn-primary" onclick="loadAbnormalityReport()">
+                  <i class="fa-solid fa-search"></i> Search
+                </button>
+              </div>
+            </div>
+            <!-- Results Table -->
+            <table>
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Date</th>
+                  <th>Train No</th>
+                  <th>Unit No</th>
+                  <th>Section</th>
+                  <th>Motorman</th>
+                  <th>Abnormality Type</th>
+                  <th>Details</th>
+                </tr>
+              </thead>
+              <tbody id="table-abnormality">
+                <tr><td colspan="8" class="empty-state">Select filters and click Search</td></tr>
               </tbody>
             </table>
           </div>
@@ -625,6 +839,244 @@
         const d = new Date(dateStr);
         return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
       }
+
+      // ============ NEW REPORTS: Working History & Abnormality ============
+
+      let historyMotormanSelect = null;
+      let abnormalityMotormanSelect = null;
+
+      // Initialize motorman dropdowns and set default dates
+      async function initNewReports() {
+        // Set default dates (last 30 days)
+        const today = new Date();
+        const thirtyDaysAgo = new Date(today);
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+        const formatDateInput = (d) => d.toISOString().split('T')[0];
+
+        document.getElementById('historyStartDate').value = formatDateInput(thirtyDaysAgo);
+        document.getElementById('historyEndDate').value = formatDateInput(today);
+        document.getElementById('abnormalityStartDate').value = formatDateInput(thirtyDaysAgo);
+        document.getElementById('abnormalityEndDate').value = formatDateInput(today);
+
+        // Load motorman list for dropdowns
+        await loadMotormanDropdowns();
+
+        // Load filter options (stations and sections) for default date range
+        await loadFilterOptions('history');
+        await loadFilterOptions('abnormality');
+      }
+
+      // Load motorman list for Tom Select dropdowns
+      async function loadMotormanDropdowns() {
+        try {
+          const resp = await fetch(`${API_BASE}/api/staff`);
+          const data = await resp.json();
+
+          if (data.staff && data.staff.length > 0) {
+            // Populate both dropdowns
+            ['historyMotormanSelect', 'abnormalityMotormanSelect'].forEach(selectId => {
+              const select = document.getElementById(selectId);
+              select.innerHTML = '<option value="">-- All Motormen --</option>';
+              data.staff.forEach(staff => {
+                const opt = document.createElement('option');
+                opt.value = staff.hrms_id;
+                opt.textContent = `${staff.staff_name} (${staff.cms_id || staff.hrms_id})`;
+                select.appendChild(opt);
+              });
+            });
+
+            // Initialize Tom Select for searchable dropdowns
+            historyMotormanSelect = new TomSelect('#historyMotormanSelect', {
+              placeholder: "Type to search or select All...",
+              allowEmptyOption: true,
+              create: false,
+              sortField: { field: "text", direction: "asc" }
+            });
+
+            abnormalityMotormanSelect = new TomSelect('#abnormalityMotormanSelect', {
+              placeholder: "Type to search or select All...",
+              allowEmptyOption: true,
+              create: false,
+              sortField: { field: "text", direction: "asc" }
+            });
+          }
+        } catch (err) {
+          console.error('Error loading motorman list:', err);
+        }
+      }
+
+      // When station is selected, reset section to "All"
+      function onStationChange(prefix) {
+        const stationValue = document.getElementById(`${prefix}Station`).value;
+        if (stationValue) {
+          document.getElementById(`${prefix}Section`).value = '';
+        }
+      }
+
+      // When section is selected, reset station to "All"
+      function onSectionChange(prefix) {
+        const sectionValue = document.getElementById(`${prefix}Section`).value;
+        if (sectionValue) {
+          document.getElementById(`${prefix}Station`).value = '';
+        }
+      }
+
+      // Load filter options (stations and sections) based on date range
+      async function loadFilterOptions(prefix) {
+        const startDate = document.getElementById(`${prefix}StartDate`).value;
+        const endDate = document.getElementById(`${prefix}EndDate`).value;
+
+        if (!startDate || !endDate) return;
+
+        try {
+          const resp = await fetch(`${API_BASE}/api/reports/filter-options?start_date=${startDate}&end_date=${endDate}`);
+          const data = await resp.json();
+
+          if (data.success) {
+            // Update station dropdown
+            const stationSelect = document.getElementById(`${prefix}Station`);
+            stationSelect.innerHTML = '<option value="">-- All --</option>';
+            data.stations.forEach(st => {
+              const opt = document.createElement('option');
+              opt.value = st;
+              opt.textContent = st;
+              stationSelect.appendChild(opt);
+            });
+
+            // Update section dropdown
+            const sectionSelect = document.getElementById(`${prefix}Section`);
+            sectionSelect.innerHTML = '<option value="">-- All --</option>';
+            data.sections.forEach(sec => {
+              const opt = document.createElement('option');
+              opt.value = sec;
+              opt.textContent = sec;
+              sectionSelect.appendChild(opt);
+            });
+          }
+        } catch (err) {
+          console.error('Error loading filter options:', err);
+        }
+      }
+
+      // Load Working History
+      async function loadWorkingHistory() {
+        const motormanId = historyMotormanSelect ? historyMotormanSelect.getValue() : document.getElementById('historyMotormanSelect').value;
+        const startDate = document.getElementById('historyStartDate').value;
+        const endDate = document.getElementById('historyEndDate').value;
+        const station = document.getElementById('historyStation').value;
+        const section = document.getElementById('historySection').value;
+        const trainNumber = document.getElementById('historyTrainNumber').value.trim();
+        const unitNo = document.getElementById('historyUnitNo').value.trim();
+
+        if (!startDate || !endDate) {
+          alert('Please select date range');
+          return;
+        }
+
+        const params = new URLSearchParams({
+          start_date: startDate,
+          end_date: endDate
+        });
+        if (motormanId) params.append('motorman_hrms_id', motormanId);
+        if (station) params.append('station', station);
+        if (section) params.append('section', section);
+        if (trainNumber) params.append('train_number', trainNumber);
+        if (unitNo) params.append('unit_no', unitNo);
+
+        const tbody = document.getElementById('table-history');
+        tbody.innerHTML = '<tr><td colspan="8" class="loading">Loading...</td></tr>';
+
+        try {
+          const resp = await fetch(`${API_BASE}/api/reports/motorman-history?${params}`);
+          const data = await resp.json();
+
+          document.getElementById('badge-history').textContent = `${data.total_records || 0} Records`;
+
+          if (data.success && data.data && data.data.length > 0) {
+            tbody.innerHTML = data.data.map((row, idx) => `
+              <tr>
+                <td>${idx + 1}</td>
+                <td>${formatDate(row.date_of_working)}</td>
+                <td>${row.train_number || '-'}</td>
+                <td>${row.unit_no || '-'}</td>
+                <td>${row.from_station || '-'}</td>
+                <td>${row.to_station || '-'}</td>
+                <td>${row.motorman_name || '-'}</td>
+                <td>${formatDate(row.analysis_date)}</td>
+              </tr>
+            `).join('');
+          } else {
+            tbody.innerHTML = '<tr><td colspan="8" class="empty-state">No records found</td></tr>';
+          }
+        } catch (err) {
+          console.error('Error loading working history:', err);
+          tbody.innerHTML = '<tr><td colspan="8" class="empty-state" style="color:var(--danger)">Error loading data</td></tr>';
+        }
+      }
+
+      // Load Abnormality Report
+      async function loadAbnormalityReport() {
+        const motormanId = abnormalityMotormanSelect ? abnormalityMotormanSelect.getValue() : document.getElementById('abnormalityMotormanSelect').value;
+        const startDate = document.getElementById('abnormalityStartDate').value;
+        const endDate = document.getElementById('abnormalityEndDate').value;
+        const station = document.getElementById('abnormalityStation').value;
+        const section = document.getElementById('abnormalitySection').value;
+        const trainNumber = document.getElementById('abnormalityTrainNumber').value.trim();
+        const unitNo = document.getElementById('abnormalityUnitNo').value.trim();
+
+        if (!startDate || !endDate) {
+          alert('Please select date range');
+          return;
+        }
+
+        const params = new URLSearchParams({
+          start_date: startDate,
+          end_date: endDate
+        });
+        if (motormanId) params.append('motorman_hrms_id', motormanId);
+        if (station) params.append('station', station);
+        if (section) params.append('section', section);
+        if (trainNumber) params.append('train_number', trainNumber);
+        if (unitNo) params.append('unit_no', unitNo);
+
+        const tbody = document.getElementById('table-abnormality');
+        tbody.innerHTML = '<tr><td colspan="8" class="loading">Loading...</td></tr>';
+
+        try {
+          const resp = await fetch(`${API_BASE}/api/reports/motorman-abnormalities?${params}`);
+          const data = await resp.json();
+
+          document.getElementById('badge-abnormality').textContent = `${data.total_records || 0} Records`;
+
+          if (data.success && data.data && data.data.length > 0) {
+            tbody.innerHTML = data.data.map((row, idx) => `
+              <tr>
+                <td>${idx + 1}</td>
+                <td>${formatDate(row.date_of_working)}</td>
+                <td>${row.train_number || '-'}</td>
+                <td>${row.unit_no || '-'}</td>
+                <td>${row.section || '-'}</td>
+                <td>${row.motorman_name || '-'}</td>
+                <td><span style="color: var(--danger); font-weight: 500;">${row.abnormality_type || '-'}</span></td>
+                <td style="font-size: 0.85rem; max-width: 300px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${(row.abnormality_details || '').replace(/"/g, '&quot;')}">${row.abnormality_details || '-'}</td>
+              </tr>
+            `).join('');
+          } else {
+            tbody.innerHTML = '<tr><td colspan="8" class="empty-state">No abnormalities found in selected range</td></tr>';
+          }
+        } catch (err) {
+          console.error('Error loading abnormality report:', err);
+          tbody.innerHTML = '<tr><td colspan="8" class="empty-state" style="color:var(--danger)">Error loading data</td></tr>';
+        }
+      }
+
+      // Update loadAllData to include new reports initialization
+      const originalLoadAllData = loadAllData;
+      loadAllData = function() {
+        originalLoadAllData();
+        initNewReports();
+      };
     </script>
   </body>
 </html>

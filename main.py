@@ -20,7 +20,8 @@ from spm_db import (
     get_run, get_points, list_runs, get_runs_by_date, get_staff_list, get_cli_list,
     get_staff_by_hrms, get_cli_by_cms_id, get_braking_analysis_data, get_stations_with_braking_data,
     get_motormen_for_station, get_motorman_report_kpi_stats, get_not_analyzed_3_months,
-    get_not_analyzed_15_days, get_daily_analysis_trend, get_month_comparison
+    get_not_analyzed_15_days, get_daily_analysis_trend, get_month_comparison,
+    get_motorman_working_history, get_motorman_abnormalities, get_available_sections, get_available_stations
 )
 
 # app = FastAPI(title="SPM Analysis API")
@@ -1637,5 +1638,94 @@ async def api_get_month_comparison():
     try:
         data = get_month_comparison()
         return {"success": True, **data}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/reports/motorman-history")
+async def api_get_motorman_history(
+    start_date: str,
+    end_date: str,
+    motorman_hrms_id: str = None,
+    station: str = None,
+    section: str = None,
+    train_number: str = None,
+    unit_no: str = None
+):
+    """
+    Get motorman working history - list of runs with date, train, from, to.
+
+    Args:
+        start_date: Start date (YYYY-MM-DD)
+        end_date: End date (YYYY-MM-DD)
+        motorman_hrms_id: Optional - filter for specific motorman
+        station: Optional - filter by from_station or to_station
+        section: Optional - filter by section (e.g., 'CSMT-KYN')
+        train_number: Optional - filter by train number (partial match)
+        unit_no: Optional - filter by unit number (partial match)
+    """
+    try:
+        data = get_motorman_working_history(start_date, end_date, motorman_hrms_id, station, section, train_number, unit_no)
+        return {
+            "success": True,
+            "total_records": len(data),
+            "motorman_hrms_id": motorman_hrms_id,
+            "data": data
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/reports/motorman-abnormalities")
+async def api_get_motorman_abnormalities(
+    start_date: str,
+    end_date: str,
+    motorman_hrms_id: str = None,
+    station: str = None,
+    section: str = None,
+    train_number: str = None,
+    unit_no: str = None
+):
+    """
+    Get runs with abnormalities for motorman(s).
+
+    Args:
+        start_date: Start date (YYYY-MM-DD)
+        end_date: End date (YYYY-MM-DD)
+        motorman_hrms_id: Optional - filter for specific motorman
+        station: Optional - filter by from_station or to_station
+        section: Optional - filter by section (e.g., 'CSMT-KYN')
+        train_number: Optional - filter by train number (partial match)
+        unit_no: Optional - filter by unit number (partial match)
+    """
+    try:
+        data = get_motorman_abnormalities(start_date, end_date, motorman_hrms_id, station, section, train_number, unit_no)
+        return {
+            "success": True,
+            "total_records": len(data),
+            "motorman_hrms_id": motorman_hrms_id,
+            "data": data
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/reports/filter-options")
+async def api_get_filter_options(start_date: str, end_date: str):
+    """
+    Get available filter options (stations and sections) for date range.
+
+    Args:
+        start_date: Start date (YYYY-MM-DD)
+        end_date: End date (YYYY-MM-DD)
+    """
+    try:
+        stations = get_available_stations(start_date, end_date)
+        sections = get_available_sections(start_date, end_date)
+        return {
+            "success": True,
+            "stations": stations,
+            "sections": sections
+        }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
