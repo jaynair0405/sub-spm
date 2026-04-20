@@ -1024,7 +1024,7 @@ def get_motorman_working_history(start_date: str, end_date: str, motorman_hrms_i
             query += " AND r.unit_no LIKE %s"
             params.append(f"%{unit_no}%")
 
-        query += " ORDER BY r.date_of_working DESC, r.analysis_date DESC"
+        query += " ORDER BY r.date_of_working DESC, analysis_date DESC"
 
         cur.execute(query, params)
         results = cur.fetchall()
@@ -1107,7 +1107,7 @@ def get_motorman_abnormalities(start_date: str, end_date: str, motorman_hrms_id:
             query += " AND r.unit_no LIKE %s"
             params.append(f"%{unit_no}%")
 
-        query += " ORDER BY r.date_of_working DESC, r.analysis_date DESC"
+        query += " ORDER BY r.date_of_working DESC, analysis_date DESC"
 
         cur.execute(query, params)
         rows = cur.fetchall()

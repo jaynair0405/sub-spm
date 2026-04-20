@@ -508,6 +508,9 @@
                 <button class="btn btn-primary" onclick="loadWorkingHistory()">
                   <i class="fa-solid fa-search"></i> Search
                 </button>
+                <button class="btn" onclick="clearFilters('history')" style="margin-left: 6px;">
+                  <i class="fa-solid fa-xmark"></i> Clear
+                </button>
               </div>
             </div>
             <!-- Results Table -->
@@ -580,6 +583,9 @@
               <div class="form-group">
                 <button class="btn btn-primary" onclick="loadAbnormalityReport()">
                   <i class="fa-solid fa-search"></i> Search
+                </button>
+                <button class="btn" onclick="clearFilters('abnormality')" style="margin-left: 6px;">
+                  <i class="fa-solid fa-xmark"></i> Clear
                 </button>
               </div>
             </div>
@@ -920,6 +926,42 @@
         if (sectionValue) {
           document.getElementById(`${prefix}Station`).value = '';
         }
+      }
+
+      // Clear all filters and reset to defaults
+      function clearFilters(prefix) {
+        // Reset motorman dropdown (Tom Select)
+        const motormanSelect = prefix === 'history' ? historyMotormanSelect : abnormalityMotormanSelect;
+        if (motormanSelect) {
+          motormanSelect.clear();
+        }
+
+        // Reset date range to last 30 days
+        const today = new Date();
+        const thirtyDaysAgo = new Date(today);
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+        const formatDateInput = (d) => d.toISOString().split('T')[0];
+
+        document.getElementById(`${prefix}StartDate`).value = formatDateInput(thirtyDaysAgo);
+        document.getElementById(`${prefix}EndDate`).value = formatDateInput(today);
+
+        // Reset station and section dropdowns
+        document.getElementById(`${prefix}Station`).value = '';
+        document.getElementById(`${prefix}Section`).value = '';
+
+        // Reset text inputs
+        document.getElementById(`${prefix}TrainNumber`).value = '';
+        document.getElementById(`${prefix}UnitNo`).value = '';
+
+        // Reset badge
+        document.getElementById(`badge-${prefix}`).textContent = 'Search to view';
+
+        // Clear table
+        const tbody = document.getElementById(`table-${prefix}`);
+        tbody.innerHTML = '<tr><td colspan="8" class="empty-state">Select filters and click Search</td></tr>';
+
+        // Reload filter options for new date range
+        loadFilterOptions(prefix);
       }
 
       // Load filter options (stations and sections) based on date range
