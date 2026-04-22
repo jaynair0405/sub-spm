@@ -797,7 +797,9 @@
               <input
                 type="date"
                 id="dateOfWorking"
+                max=""
               />
+              <small style="color: #666; font-size: 0.8em;">Cannot be a future date</small>
             </label>
             <label>
               Analysed By (CLI)
@@ -2132,6 +2134,10 @@
         document.getElementById("unitNumber").addEventListener("input", onUnitNumberChange);
         document.getElementById("trainNumber").addEventListener("input", onTrainNumberChange);
 
+        // Set max date to today (prevent future dates)
+        const today = new Date().toISOString().split('T')[0];
+        document.getElementById("dateOfWorking").setAttribute("max", today);
+
         // Add event listeners for corridor segment radio buttons
         const corridorRadios = document.querySelectorAll('input[name="corridorSegment"]');
         corridorRadios.forEach(radio => {
@@ -2513,7 +2519,7 @@
         }
       }
 
-      const onFilesSelected = (files) => {
+      const onFilesSelected = async (files) => {
         if (!files || !files.length) {
           fileInfo.textContent = "No file selected yet.";
           return;
@@ -2522,6 +2528,32 @@
         fileInfo.textContent = `${file.name} • ${(file.size / 1024).toFixed(
           1
         )} KB`;
+
+        // Auto-detect date from file and fill the date field
+        try {
+          const formData = new FormData();
+          formData.append("file", file);
+          const resp = await fetch(`${CHART_API_BASE}/detect-date`, {
+            method: "POST",
+            body: formData
+          });
+          const data = await resp.json();
+
+          if (data.success && data.detected_date) {
+            const dateInput = document.getElementById("dateOfWorking");
+            // Always update date when new file is selected
+            if (data.is_future) {
+              // If detected date is future, use today instead
+              dateInput.value = data.today;
+              fileInfo.textContent += ` • Date auto-set to today (file date was future)`;
+            } else {
+              dateInput.value = data.detected_date;
+              fileInfo.textContent += ` • Date: ${data.detected_date}`;
+            }
+          }
+        } catch (err) {
+          console.log("Could not auto-detect date:", err);
+        }
       };
 
       uploadZone.addEventListener("click", (e) => {

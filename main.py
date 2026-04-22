@@ -293,6 +293,76 @@ async def api_train_lookup(train_number: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.post("/detect-date")
+async def detect_date_from_file(file: UploadFile = File(...)):
+    """
+    Detect the date from an uploaded SPM file (first row's date).
+    Used to auto-fill the date_of_working field in the upload form.
+    """
+    if not file.filename.endswith(('.csv', '.xlsx', '.xls')):
+        raise HTTPException(status_code=400, detail="Only CSV and Excel files are supported")
+
+    with tempfile.NamedTemporaryFile(delete=False, suffix=Path(file.filename).suffix) as tmp:
+        content = await file.read()
+        tmp.write(content)
+        tmp_path = Path(tmp.name)
+
+    try:
+        # Read just first few rows to detect date
+        if tmp_path.suffix == '.csv':
+            df = pl.read_csv(tmp_path, n_rows=5)
+        else:
+            pandas_df = pd.read_excel(tmp_path, nrows=5)
+            df = pl.from_pandas(pandas_df)
+
+        # Find date column
+        df_cols_lower = {c.lower(): c for c in df.columns}
+        date_col = next((v for k, v in df_cols_lower.items() if 'date' in k), None)
+
+        if not date_col:
+            return {"success": False, "error": "No date column found"}
+
+        # Get first non-null date value
+        first_date = df[date_col][0]
+        if first_date is None:
+            return {"success": False, "error": "No date value found"}
+
+        # Parse and format the date
+        try:
+            if isinstance(first_date, str):
+                # Try common date formats
+                for fmt in ["%Y-%m-%d %H:%M:%S", "%d-%m-%Y %H:%M:%S", "%Y-%m-%d", "%d-%m-%Y", "%d/%m/%Y %H:%M:%S", "%d/%m/%Y"]:
+                    try:
+                        parsed = datetime.strptime(str(first_date).split('.')[0], fmt)
+                        detected_date = parsed.strftime("%Y-%m-%d")
+                        break
+                    except ValueError:
+                        continue
+                else:
+                    detected_date = str(first_date)[:10]
+            else:
+                # Assume it's already a datetime object
+                detected_date = pd.to_datetime(first_date).strftime("%Y-%m-%d")
+
+            # Validate it's not a future date
+            today = datetime.now().strftime("%Y-%m-%d")
+
+            return {
+                "success": True,
+                "detected_date": detected_date,
+                "today": today,
+                "is_future": detected_date > today
+            }
+        except Exception as e:
+            return {"success": False, "error": f"Could not parse date: {str(e)}"}
+
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+    finally:
+        tmp_path.unlink(missing_ok=True)
+
+
 @app.post("/upload")
 async def upload_spm_file(
     file: UploadFile = File(...),
@@ -311,6 +381,16 @@ async def upload_spm_file(
     # Validate file type
     if not file.filename.endswith(('.csv', '.xlsx', '.xls')):
         raise HTTPException(status_code=400, detail="Only CSV and Excel files are supported")
+
+    # Validate date_of_working is not in the future
+    if date_of_working:
+        try:
+            working_date = datetime.strptime(date_of_working, "%Y-%m-%d").date()
+            today = datetime.now().date()
+            if working_date > today:
+                raise HTTPException(status_code=400, detail="Date of working cannot be a future date")
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD")
 
     # Save uploaded file temporarily
     with tempfile.NamedTemporaryFile(delete=False, suffix=Path(file.filename).suffix) as tmp:
