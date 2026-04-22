@@ -898,7 +898,13 @@ async def upload_spm_file(
         if existing_run_id:
             existing_run = get_run(existing_run_id)
             if existing_run and existing_run.get('analysis_date'):
-                existing_analysis_date = existing_run['analysis_date'].strftime('%d-%m-%Y %H:%M') if hasattr(existing_run['analysis_date'], 'strftime') else str(existing_run['analysis_date'])
+                # Convert UTC to IST (+05:30) for display
+                utc_date = existing_run['analysis_date']
+                if hasattr(utc_date, 'strftime'):
+                    ist_date = utc_date + timedelta(hours=5, minutes=30)
+                    existing_analysis_date = ist_date.strftime('%d-%m-%Y %H:%M')
+                else:
+                    existing_analysis_date = str(utc_date)
 
         # Store run data in memory (NOT saved to DB yet - user must confirm)
         runs_storage[run_id] = {

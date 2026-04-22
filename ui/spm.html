@@ -615,6 +615,7 @@
   header { display: none !important; } /* Hide the blue app header */
   .btn-pdf { display: none !important; }
   .loading-overlay { display: none !important; }
+  .toast { display: none !important; } /* Hide toast messages in PDF */
 
   /* Prevent page breaks inside cards, charts, and tables */
   .card {
@@ -1052,6 +1053,7 @@
         <!-- Print-only footer (appears on last page) -->
         <div class="print-footer">
           <span>@CR Sr.DEE TRSO-BB Division</span>
+          <span id="analysisTimestamp" style="font-size: 7pt;"></span>
           <span>Developed by Jayakumar M D Mman Kyn</span>
         </div>
       </main>
@@ -1779,6 +1781,14 @@
       function exportPDF() {
         // Show PDF header before printing
         document.getElementById("pdfHeader").style.display = "flex";
+        // Set analysis timestamp in footer
+        const now = new Date();
+        const timestamp = now.toLocaleString('en-IN', {
+          timeZone: 'Asia/Kolkata',
+          day: '2-digit', month: '2-digit', year: 'numeric',
+          hour: '2-digit', minute: '2-digit', hour12: true
+        });
+        document.getElementById("analysisTimestamp").textContent = "Analyzed: " + timestamp;
         // Trigger browser print dialog (user can save as PDF)
         window.print();
       }
