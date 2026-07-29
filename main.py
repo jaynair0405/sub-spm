@@ -1,6 +1,7 @@
 from fastapi import FastAPI, File, UploadFile, HTTPException, Form, Body
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.staticfiles import StaticFiles
 from pathlib import Path
 from typing import Optional, List, Dict, Any
 import polars as pl
@@ -8,7 +9,9 @@ import pandas as pd
 import tempfile
 import os
 import uuid
+import re
 from datetime import datetime, timedelta
+from io import BytesIO
 from spm_db import insert_run, insert_station_windows, insert_window_points, find_existing_run, delete_run_cascade
 from corridor_loader import CorridorManager
 from psr_mps import PSRMPSCalculator, detect_violations, detect_overspeed_events, get_overspeed_summary
@@ -42,6 +45,15 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Mount reports folder for serving motorman PDFs
+REPORTS_DIR = Path(__file__).parent / "reports"
+REPORTS_DIR.mkdir(exist_ok=True)
+(REPORTS_DIR / "motorman").mkdir(exist_ok=True)
+app.mount("/reports", StaticFiles(directory=str(REPORTS_DIR)), name="reports")
+
+# Maximum PDFs to keep per motorman
+MAX_MOTORMAN_REPORTS = 20
 
 # Initialize corridor manager
 corridor_manager = CorridorManager(DATA_ROOT)
@@ -1813,5 +1825,344 @@ async def api_get_filter_options(start_date: str, end_date: str):
             "stations": stations,
             "sections": sections
         }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ============ MOTORMAN PDF STORAGE APIs ============
+
+def _generate_pdf_filename(motorman_name: str, train_number: str, unit_no: str, date_of_working: str) -> str:
+    """
+    Generate PDF filename in format: MotormanName-TrainNumber-UnitNo-Date.pdf
+    Example: RajeshKumar-K42-5001-30-04-2026.pdf
+    """
+    # Clean motorman name (remove special chars, keep alphanumeric and spaces)
+    clean_name = re.sub(r'[^a-zA-Z0-9\s]', '', motorman_name or 'Unknown')
+    clean_name = clean_name.replace(' ', '')[:20]  # Remove spaces, limit length
+
+    # Clean train number
+    clean_train = re.sub(r'[^a-zA-Z0-9]', '', train_number or 'NA')
+
+    # Clean unit number
+    clean_unit = re.sub(r'[^a-zA-Z0-9]', '', unit_no or 'NA')
+
+    # Format date (convert YYYY-MM-DD to DD-MM-YYYY)
+    try:
+        if date_of_working:
+            dt = datetime.strptime(date_of_working, '%Y-%m-%d')
+            safe_date = dt.strftime('%d-%m-%Y')
+        else:
+            safe_date = datetime.now().strftime('%d-%m-%Y')
+    except:
+        safe_date = datetime.now().strftime('%d-%m-%Y')
+
+    filename = f"{clean_name}-{clean_train}-{clean_unit}-{safe_date}.pdf"
+    return filename
+
+
+def _get_motorman_pdf_count(hrms_id: str) -> int:
+    """Get count of PDFs for a motorman from database."""
+    from db_config import get_db_connection
+    cn = get_db_connection()
+    try:
+        cur = cn.cursor(dictionary=True)
+        cur.execute("""
+            SELECT COUNT(*) as count FROM div_sub_spm_runs
+            WHERE motorman_hrms_id = %s AND pdf_filename IS NOT NULL AND pdf_filename != ''
+        """, [hrms_id])
+        result = cur.fetchone()
+        cur.close()
+        return result['count'] if result else 0
+    finally:
+        cn.close()
+
+
+def _delete_oldest_motorman_pdfs(hrms_id: str, delete_count: int):
+    """Delete oldest PDFs for a motorman to maintain limit."""
+    from db_config import get_db_connection
+    cn = get_db_connection()
+    try:
+        cur = cn.cursor(dictionary=True)
+        # Get oldest reports
+        cur.execute("""
+            SELECT run_id, pdf_filename FROM div_sub_spm_runs
+            WHERE motorman_hrms_id = %s AND pdf_filename IS NOT NULL AND pdf_filename != ''
+            ORDER BY date_of_working ASC, analysis_date ASC
+            LIMIT %s
+        """, [hrms_id, delete_count])
+        old_reports = cur.fetchall()
+
+        for old_report in old_reports:
+            # Delete file from disk
+            old_file_path = REPORTS_DIR / "motorman" / hrms_id / old_report['pdf_filename']
+            if old_file_path.exists():
+                old_file_path.unlink()
+
+            # Clear pdf_filename in database
+            cur.execute("""
+                UPDATE div_sub_spm_runs SET pdf_filename = NULL WHERE run_id = %s
+            """, [old_report['run_id']])
+
+        cn.commit()
+        cur.close()
+    finally:
+        cn.close()
+
+
+@app.post("/api/motorman-reports/save/{run_id}")
+async def save_motorman_report(run_id: str, pdf_data: bytes = File(...)):
+    """
+    Save PDF report for a motorman.
+    - Creates folder: reports/motorman/{hrms_id}/
+    - Enforces 20 PDF limit per motorman (deletes oldest if exceeded)
+    - Updates database with pdf_filename
+
+    Args:
+        run_id: The run ID to save PDF for
+        pdf_data: The PDF file content
+    """
+    from db_config import get_db_connection
+
+    try:
+        # Get run details from database
+        run = get_run(run_id)
+        if not run:
+            raise HTTPException(status_code=404, detail="Run not found")
+
+        hrms_id = run.get('motorman_hrms_id')
+        if not hrms_id:
+            hrms_id = "other_motorman"
+
+        # Get motorman name for filename
+        motorman_name = "Unknown"
+        if hrms_id and hrms_id != "other_motorman":
+            staff = get_staff_by_hrms(hrms_id)
+            if staff:
+                motorman_name = staff.get('staff_name', 'Unknown')
+
+        # Create motorman folder
+        motorman_folder = REPORTS_DIR / "motorman" / hrms_id
+        motorman_folder.mkdir(parents=True, exist_ok=True)
+
+        # Check and enforce 20 PDF limit
+        if hrms_id != "other_motorman":
+            current_count = _get_motorman_pdf_count(hrms_id)
+            if current_count >= MAX_MOTORMAN_REPORTS:
+                delete_count = current_count - MAX_MOTORMAN_REPORTS + 1
+                _delete_oldest_motorman_pdfs(hrms_id, delete_count)
+
+        # Generate filename
+        filename = _generate_pdf_filename(
+            motorman_name,
+            run.get('train_number', ''),
+            run.get('unit_no', ''),
+            str(run.get('date_of_working', ''))
+        )
+
+        # Save PDF to disk
+        file_path = motorman_folder / filename
+        with open(file_path, 'wb') as f:
+            f.write(pdf_data)
+
+        # Update database with pdf_filename
+        cn = get_db_connection()
+        try:
+            cur = cn.cursor()
+            cur.execute("""
+                UPDATE div_sub_spm_runs SET pdf_filename = %s WHERE run_id = %s
+            """, [filename, run_id])
+            cn.commit()
+            cur.close()
+        finally:
+            cn.close()
+
+        return {
+            "success": True,
+            "message": "PDF saved successfully",
+            "filename": filename,
+            "path": f"/reports/motorman/{hrms_id}/{filename}",
+            "deleted_old": current_count >= MAX_MOTORMAN_REPORTS if hrms_id != "other_motorman" else False
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Failed to save PDF: {str(e)}")
+
+
+@app.post("/api/motorman-reports/save-from-memory/{run_id}")
+async def save_motorman_report_from_memory(run_id: str, pdf_base64: str = Body(..., embed=True)):
+    """
+    Save PDF report from base64 encoded data (sent from browser).
+    Used when browser generates PDF and sends it to server.
+    """
+    import base64
+    from db_config import get_db_connection
+
+    try:
+        # Decode base64 PDF data
+        # Remove data URL prefix if present
+        if ',' in pdf_base64:
+            pdf_base64 = pdf_base64.split(',')[1]
+        pdf_data = base64.b64decode(pdf_base64)
+
+        # Get run details - first check memory, then database
+        run = None
+        if run_id in runs_storage:
+            run_data = runs_storage[run_id]
+            run = {
+                'run_id': run_id,
+                'motorman_hrms_id': run_data.get('staff_id'),
+                'train_number': run_data.get('train_number'),
+                'unit_no': run_data.get('unit_no'),
+                'date_of_working': run_data.get('date_of_working'),
+            }
+            motorman_name = run_data.get('motorman_name', 'Unknown')
+        else:
+            run = get_run(run_id)
+            if not run:
+                raise HTTPException(status_code=404, detail="Run not found")
+            # Get motorman name
+            hrms_id = run.get('motorman_hrms_id')
+            if hrms_id:
+                staff = get_staff_by_hrms(hrms_id)
+                motorman_name = staff.get('staff_name', 'Unknown') if staff else 'Unknown'
+            else:
+                motorman_name = 'Unknown'
+
+        hrms_id = run.get('motorman_hrms_id')
+        if not hrms_id:
+            hrms_id = "other_motorman"
+
+        # Create motorman folder
+        motorman_folder = REPORTS_DIR / "motorman" / hrms_id
+        motorman_folder.mkdir(parents=True, exist_ok=True)
+
+        # Check and enforce 20 PDF limit
+        deleted_old = False
+        if hrms_id != "other_motorman":
+            current_count = _get_motorman_pdf_count(hrms_id)
+            if current_count >= MAX_MOTORMAN_REPORTS:
+                delete_count = current_count - MAX_MOTORMAN_REPORTS + 1
+                _delete_oldest_motorman_pdfs(hrms_id, delete_count)
+                deleted_old = True
+
+        # Generate filename
+        filename = _generate_pdf_filename(
+            motorman_name,
+            run.get('train_number', ''),
+            run.get('unit_no', ''),
+            str(run.get('date_of_working', ''))
+        )
+
+        # Save PDF to disk
+        file_path = motorman_folder / filename
+        with open(file_path, 'wb') as f:
+            f.write(pdf_data)
+
+        # Update database with pdf_filename
+        cn = get_db_connection()
+        try:
+            cur = cn.cursor()
+            cur.execute("""
+                UPDATE div_sub_spm_runs SET pdf_filename = %s WHERE run_id = %s
+            """, [filename, run_id])
+            cn.commit()
+            cur.close()
+        finally:
+            cn.close()
+
+        return {
+            "success": True,
+            "message": "PDF saved successfully",
+            "filename": filename,
+            "path": f"/reports/motorman/{hrms_id}/{filename}",
+            "deleted_old": deleted_old
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Failed to save PDF: {str(e)}")
+
+
+@app.get("/api/motorman-reports/{hrms_id}")
+async def get_motorman_reports(hrms_id: str):
+    """Get list of saved PDFs for a motorman."""
+    from db_config import get_db_connection
+
+    try:
+        cn = get_db_connection()
+        cur = cn.cursor(dictionary=True)
+
+        cur.execute("""
+            SELECT run_id, train_number, date_of_working, unit_no, pdf_filename,
+                   DATE(CONVERT_TZ(analysis_date, '+00:00', '+05:30')) as analysis_date
+            FROM div_sub_spm_runs
+            WHERE motorman_hrms_id = %s AND pdf_filename IS NOT NULL AND pdf_filename != ''
+            ORDER BY date_of_working DESC, analysis_date DESC
+        """, [hrms_id])
+
+        reports = cur.fetchall()
+        cur.close()
+        cn.close()
+
+        # Add PDF URLs
+        for report in reports:
+            report['pdf_url'] = f"/reports/motorman/{hrms_id}/{report['pdf_filename']}"
+
+        return {
+            "success": True,
+            "hrms_id": hrms_id,
+            "total": len(reports),
+            "reports": reports
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.delete("/api/motorman-reports/{hrms_id}/{run_id}")
+async def delete_motorman_report(hrms_id: str, run_id: str):
+    """Delete a specific PDF report for a motorman."""
+    from db_config import get_db_connection
+
+    try:
+        cn = get_db_connection()
+        cur = cn.cursor(dictionary=True)
+
+        # Get the PDF filename
+        cur.execute("""
+            SELECT pdf_filename FROM div_sub_spm_runs WHERE run_id = %s AND motorman_hrms_id = %s
+        """, [run_id, hrms_id])
+
+        report = cur.fetchone()
+        if not report or not report['pdf_filename']:
+            cur.close()
+            cn.close()
+            raise HTTPException(status_code=404, detail="PDF not found")
+
+        # Delete file from disk
+        file_path = REPORTS_DIR / "motorman" / hrms_id / report['pdf_filename']
+        if file_path.exists():
+            file_path.unlink()
+
+        # Clear pdf_filename in database
+        cur.execute("""
+            UPDATE div_sub_spm_runs SET pdf_filename = NULL WHERE run_id = %s
+        """, [run_id])
+        cn.commit()
+
+        cur.close()
+        cn.close()
+
+        return {"success": True, "message": "PDF deleted successfully"}
+
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

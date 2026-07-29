@@ -19,6 +19,8 @@
     />
     <!-- Tom Select for searchable dropdowns -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/css/tom-select.css" />
+    <!-- html2pdf for client-side PDF generation -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <style>
       :root {
         --brand: #0b3d91;
@@ -1777,11 +1779,111 @@
         if (overlay) overlay.classList.remove("active");
       }
 
-      // PDF Export function
-      function exportPDF() {
-        // Show PDF header before printing
+      // PDF Export function - saves to server AND downloads locally
+      async function exportPDF() {
+        const pdfBtn = document.getElementById("pdfBtn");
+        const originalText = pdfBtn.innerHTML;
+        pdfBtn.disabled = true;
+        pdfBtn.innerHTML = '<span style="margin-right:6px;">⏳</span> Generating PDF...';
+
+        try {
+          // Show PDF header before generating
+          document.getElementById("pdfHeader").style.display = "flex";
+          // Set analysis timestamp in footer
+          const now = new Date();
+          const timestamp = now.toLocaleString('en-IN', {
+            timeZone: 'Asia/Kolkata',
+            day: '2-digit', month: '2-digit', year: 'numeric',
+            hour: '2-digit', minute: '2-digit', hour12: true
+          });
+          document.getElementById("analysisTimestamp").textContent = "Analyzed: " + timestamp;
+
+          // Get the report content element
+          const element = document.querySelector('.page-shell');
+
+          // Generate filename
+          const motormanName = document.getElementById("metaStaff")?.textContent || 'Unknown';
+          const trainInfo = document.getElementById("metaTrainInfo")?.textContent || '';
+          const trainNo = trainInfo.split('|')[0]?.trim() || 'NA';
+          const unitNo = document.getElementById("unitNumber")?.value || 'NA';
+          const dateOfWorking = document.getElementById("metaDate")?.textContent || '';
+
+          // Clean filename parts
+          const cleanName = motormanName.replace(/[^a-zA-Z0-9]/g, '').substring(0, 20);
+          const cleanTrain = trainNo.replace(/[^a-zA-Z0-9]/g, '');
+          const cleanUnit = unitNo.replace(/[^a-zA-Z0-9]/g, '');
+          const cleanDate = dateOfWorking.replace(/\//g, '-');
+
+          const filename = `${cleanName}-${cleanTrain}-${cleanUnit}-${cleanDate}.pdf`;
+
+          // html2pdf options
+          const opt = {
+            margin: [10, 10, 10, 10],
+            filename: filename,
+            image: { type: 'jpeg', quality: 0.95 },
+            html2canvas: { scale: 2, useCORS: true, logging: false },
+            jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+            pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
+          };
+
+          // Generate PDF blob
+          const pdfBlob = await html2pdf().set(opt).from(element).outputPdf('blob');
+
+          // Convert blob to base64
+          const reader = new FileReader();
+          reader.readAsDataURL(pdfBlob);
+
+          reader.onloadend = async function() {
+            const base64data = reader.result;
+
+            // Save to server if we have a run ID
+            if (currentRunId) {
+              try {
+                const saveResponse = await fetch(`${CHART_API_BASE}/api/motorman-reports/save-from-memory/${currentRunId}`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ pdf_base64: base64data })
+                });
+
+                const saveResult = await saveResponse.json();
+                if (saveResult.success) {
+                  console.log('PDF saved to server:', saveResult.path);
+                  if (saveResult.deleted_old) {
+                    showToast('📁 PDF saved! (Oldest PDF removed to maintain 20 report limit)');
+                  } else {
+                    showToast('📁 PDF saved to server successfully');
+                  }
+                } else {
+                  console.error('Failed to save PDF to server:', saveResult.error);
+                  showToast('⚠️ PDF downloaded but failed to save to server');
+                }
+              } catch (err) {
+                console.error('Error saving PDF to server:', err);
+                showToast('⚠️ PDF downloaded but failed to save to server');
+              }
+            }
+
+            // Download locally
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(pdfBlob);
+            link.download = filename;
+            link.click();
+            URL.revokeObjectURL(link.href);
+          };
+
+        } catch (err) {
+          console.error('PDF generation failed:', err);
+          alert('Failed to generate PDF. Please try using Print (Ctrl+P) instead.');
+        } finally {
+          // Reset button
+          pdfBtn.disabled = false;
+          pdfBtn.innerHTML = originalText;
+        }
+      }
+
+      // Fallback: Print to PDF (browser dialog)
+      function printPDF() {
         document.getElementById("pdfHeader").style.display = "flex";
-        // Set analysis timestamp in footer
         const now = new Date();
         const timestamp = now.toLocaleString('en-IN', {
           timeZone: 'Asia/Kolkata',
@@ -1789,7 +1891,6 @@
           hour: '2-digit', minute: '2-digit', hour12: true
         });
         document.getElementById("analysisTimestamp").textContent = "Analyzed: " + timestamp;
-        // Trigger browser print dialog (user can save as PDF)
         window.print();
       }
 

@@ -525,10 +525,11 @@
                   <th>To</th>
                   <th>Motorman</th>
                   <th>Analysis Date</th>
+                  <th>PDF</th>
                 </tr>
               </thead>
               <tbody id="table-history">
-                <tr><td colspan="8" class="empty-state">Select filters and click Search</td></tr>
+                <tr><td colspan="9" class="empty-state">Select filters and click Search</td></tr>
               </tbody>
             </table>
           </div>
@@ -601,10 +602,11 @@
                   <th>Motorman</th>
                   <th>Abnormality Type</th>
                   <th>Details</th>
+                  <th>PDF</th>
                 </tr>
               </thead>
               <tbody id="table-abnormality">
-                <tr><td colspan="8" class="empty-state">Select filters and click Search</td></tr>
+                <tr><td colspan="9" class="empty-state">Select filters and click Search</td></tr>
               </tbody>
             </table>
           </div>
@@ -956,9 +958,9 @@
         // Reset badge
         document.getElementById(`badge-${prefix}`).textContent = 'Search to view';
 
-        // Clear table
+        // Clear table (both history and abnormality now have 9 columns with PDF)
         const tbody = document.getElementById(`table-${prefix}`);
-        tbody.innerHTML = '<tr><td colspan="8" class="empty-state">Select filters and click Search</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="9" class="empty-state">Select filters and click Search</td></tr>';
 
         // Reload filter options for new date range
         loadFilterOptions(prefix);
@@ -1027,7 +1029,7 @@
         if (unitNo) params.append('unit_no', unitNo);
 
         const tbody = document.getElementById('table-history');
-        tbody.innerHTML = '<tr><td colspan="8" class="loading">Loading...</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="9" class="loading">Loading...</td></tr>';
 
         try {
           const resp = await fetch(`${API_BASE}/api/reports/motorman-history?${params}`);
@@ -1046,14 +1048,20 @@
                 <td>${row.to_station || '-'}</td>
                 <td>${row.motorman_name || '-'}</td>
                 <td>${formatDate(row.analysis_date)}</td>
+                <td>${row.pdf_filename && row.motorman_hrms_id ?
+                  `<a href="${API_BASE}/reports/motorman/${row.motorman_hrms_id}/${row.pdf_filename}" target="_blank" style="color: var(--brand); text-decoration: none; font-weight: 500;">
+                    <i class="fa-solid fa-file-pdf" style="color: #dc3545;"></i> View
+                  </a>` :
+                  '<span style="color: var(--muted);">-</span>'
+                }</td>
               </tr>
             `).join('');
           } else {
-            tbody.innerHTML = '<tr><td colspan="8" class="empty-state">No records found</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="9" class="empty-state">No records found</td></tr>';
           }
         } catch (err) {
           console.error('Error loading working history:', err);
-          tbody.innerHTML = '<tr><td colspan="8" class="empty-state" style="color:var(--danger)">Error loading data</td></tr>';
+          tbody.innerHTML = '<tr><td colspan="9" class="empty-state" style="color:var(--danger)">Error loading data</td></tr>';
         }
       }
 
@@ -1083,7 +1091,7 @@
         if (unitNo) params.append('unit_no', unitNo);
 
         const tbody = document.getElementById('table-abnormality');
-        tbody.innerHTML = '<tr><td colspan="8" class="loading">Loading...</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="9" class="loading">Loading...</td></tr>';
 
         try {
           const resp = await fetch(`${API_BASE}/api/reports/motorman-abnormalities?${params}`);
@@ -1102,14 +1110,20 @@
                 <td>${row.motorman_name || '-'}</td>
                 <td><span style="color: var(--danger); font-weight: 500;">${row.abnormality_type || '-'}</span></td>
                 <td style="font-size: 0.85rem; max-width: 300px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${(row.abnormality_details || '').replace(/"/g, '&quot;')}">${row.abnormality_details || '-'}</td>
+                <td>${row.pdf_filename && row.motorman_hrms_id ?
+                  `<a href="${API_BASE}/reports/motorman/${row.motorman_hrms_id}/${row.pdf_filename}" target="_blank" style="color: var(--brand); text-decoration: none; font-weight: 500;">
+                    <i class="fa-solid fa-file-pdf" style="color: #dc3545;"></i> View
+                  </a>` :
+                  '<span style="color: var(--muted);">-</span>'
+                }</td>
               </tr>
             `).join('');
           } else {
-            tbody.innerHTML = '<tr><td colspan="8" class="empty-state">No abnormalities found in selected range</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="9" class="empty-state">No abnormalities found in selected range</td></tr>';
           }
         } catch (err) {
           console.error('Error loading abnormality report:', err);
-          tbody.innerHTML = '<tr><td colspan="8" class="empty-state" style="color:var(--danger)">Error loading data</td></tr>';
+          tbody.innerHTML = '<tr><td colspan="9" class="empty-state" style="color:var(--danger)">Error loading data</td></tr>';
         }
       }
 

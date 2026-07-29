@@ -981,6 +981,7 @@ def get_motorman_working_history(start_date: str, end_date: str, motorman_hrms_i
         # This finds runs where motorman started at, ended at, OR passed through the station
         query = """
             SELECT DISTINCT
+                r.run_id,
                 r.date_of_working,
                 r.train_number,
                 r.unit_no,
@@ -990,7 +991,8 @@ def get_motorman_working_history(start_date: str, end_date: str, motorman_hrms_i
                 s.name AS motorman_name,
                 r.motorman_hrms_id,
                 s.current_cms_id AS motorman_cms_id,
-                DATE(CONVERT_TZ(r.analysis_date, '+00:00', '+05:30')) AS analysis_date
+                DATE(CONVERT_TZ(r.analysis_date, '+00:00', '+05:30')) AS analysis_date,
+                r.pdf_filename
             FROM div_sub_spm_runs r
             LEFT JOIN div_staff_master s ON r.motorman_hrms_id = s.hrms_id
         """
@@ -1058,6 +1060,7 @@ def get_motorman_abnormalities(start_date: str, end_date: str, motorman_hrms_id:
         # This finds runs where motorman started at, ended at, OR passed through the station
         query = """
             SELECT DISTINCT
+                r.run_id,
                 r.date_of_working,
                 r.train_number,
                 r.unit_no,
@@ -1068,7 +1071,8 @@ def get_motorman_abnormalities(start_date: str, end_date: str, motorman_hrms_id:
                 r.motorman_hrms_id,
                 s.current_cms_id AS motorman_cms_id,
                 r.abnormality_noticed,
-                DATE(CONVERT_TZ(r.analysis_date, '+00:00', '+05:30')) AS analysis_date
+                DATE(CONVERT_TZ(r.analysis_date, '+00:00', '+05:30')) AS analysis_date,
+                r.pdf_filename
             FROM div_sub_spm_runs r
             LEFT JOIN div_staff_master s ON r.motorman_hrms_id = s.hrms_id
         """
@@ -1119,6 +1123,7 @@ def get_motorman_abnormalities(start_date: str, end_date: str, motorman_hrms_id:
             abnormality_text = row.get('abnormality_noticed', '')
             abnormality_type = _categorize_abnormality(abnormality_text)
             results.append({
+                'run_id': row['run_id'],
                 'date_of_working': row['date_of_working'],
                 'train_number': row['train_number'],
                 'unit_no': row['unit_no'],
@@ -1130,7 +1135,8 @@ def get_motorman_abnormalities(start_date: str, end_date: str, motorman_hrms_id:
                 'motorman_cms_id': row['motorman_cms_id'],
                 'abnormality_type': abnormality_type,
                 'abnormality_details': abnormality_text,
-                'analysis_date': row['analysis_date']
+                'analysis_date': row['analysis_date'],
+                'pdf_filename': row['pdf_filename']
             })
 
         return results

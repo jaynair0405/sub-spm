@@ -64,6 +64,13 @@ bbtro-master.zip
 # Claude Code
 .claude/
 
+# Graphify tool output (large local cache)
+graphify-out/
+.graphifyignore
+
+# Generated motorman PDF reports (runtime data)
+reports/
+
 # Reference JS/HTML files (downloaded)
 general.js
 overspeed.js
