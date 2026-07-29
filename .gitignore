@@ -43,6 +43,21 @@ Thumbs.db
 *.xls
 *.csv
 
+# ...except the three config CSVs the app loads at startup. These are
+# hand-edited reference data (train numbers, codes, halt patterns, routes)
+# and need version history — a silent corruption in one of them went
+# unnoticed for exactly this reason. Everything else, including StaffData
+# and the daily analysis exports, stays ignored.
+!Fast Locals.csv
+!train_corridor_map.csv
+!Sub  SPM Data Analysis - All Locals.csv
+
+# Local pre-edit backups (e.g. "Fast Locals.csv.bak-2026-07-29").
+# Note *.csv above does NOT catch these — the name does not end in .csv.
+*.bak
+*.bak-*
+*.bak2-*
+
 # PDF files
 *.pdf
 
