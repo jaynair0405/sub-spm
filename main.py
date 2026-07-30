@@ -1,18 +1,20 @@
 from fastapi import FastAPI, File, UploadFile, HTTPException, Form, Body
+from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, StreamingResponse
-from fastapi.staticfiles import StaticFiles
 from pathlib import Path
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Tuple
 import polars as pl
 import pandas as pd
 import tempfile
 import os
+import threading
 import uuid
 import re
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from io import BytesIO
 from spm_db import insert_run, insert_station_windows, insert_window_points, find_existing_run, delete_run_cascade
+import run_store
 from corridor_loader import CorridorManager
 from psr_mps import PSRMPSCalculator, detect_violations, detect_overspeed_events, get_overspeed_summary
 from halt_detection import HaltDetector, calculate_cumulative_distance
@@ -46,11 +48,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Mount reports folder for serving motorman PDFs
+# Stored motorman PDF reports. Served by an explicit route below rather than
+# app.mount(StaticFiles): with root_path set (ROOT_PATH=/spm/sub-spm in .env) a
+# Mount only matches the prefixed path, so /reports/... 404s on localhost while
+# /spm/sub-spm/reports/... works. An APIRoute matches both, so the same URL works
+# in local dev and behind the production proxy.
 REPORTS_DIR = Path(__file__).parent / "reports"
 REPORTS_DIR.mkdir(exist_ok=True)
 (REPORTS_DIR / "motorman").mkdir(exist_ok=True)
-app.mount("/reports", StaticFiles(directory=str(REPORTS_DIR)), name="reports")
 
 # Maximum PDFs to keep per motorman
 MAX_MOTORMAN_REPORTS = 20
@@ -66,8 +71,9 @@ psr_calculator = PSRMPSCalculator(reference_data_dir=str(DATA_ROOT / "reference_
 halt_detector = HaltDetector(speed_threshold=0.0, min_halt_duration_seconds=1)
 brakefeel_detector = BrakeFeelDetector()
 
-# Global storage for uploaded runs (in production, use a database)
-runs_storage: Dict[str, Dict[str, Any]] = {}
+# Uploaded runs live in run_store (Parquet on disk, 1h TTL, 20-run cap).
+# This replaced an unbounded in-RAM dict that never evicted and grew to 1.3 GB
+# in production; see the module docstring in run_store.py.
 
 
 def extract_hq_from_cms_id(cms_id: str) -> str:
@@ -174,6 +180,8 @@ async def startup_event():
     print(f"✓ Loaded {len(corridor_manager.train_code_map)} train codes")
     print(f"✓ Loaded {len(corridor_manager.fast_halt_map)} fast train halt patterns")
     print(f"✓ Loaded {len(corridor_manager.train_corridor_map)} train corridor entries")
+    run_store.cleanup_orphans()
+    print(f"✓ Run store at {run_store.RUNS_DIR} ({len(run_store.list_index())} runs recovered)")
     from db_config import get_db_connection
     cn = get_db_connection()
     cn.close()
@@ -918,43 +926,49 @@ async def upload_spm_file(
                 else:
                     existing_analysis_date = str(utc_date)
 
-        # Store run data in memory (NOT saved to DB yet - user must confirm)
-        runs_storage[run_id] = {
-            "run_id": run_id,
-            "confirmed": False,  # Not saved to DB yet
-            "existing_run_id": existing_run_id,  # For duplicate handling on confirm
-            "existing_analysis_date": existing_analysis_date,  # When the duplicate was analyzed
-            "filename": file.filename,
-            "staff_id": staff_id,
-            "motorman_name": motorman_name,
-            "motorman_hq": motorman_hq,
-            "nominated_cli_name": nominated_cli_name,
-            "from_station": from_station,
-            "to_station": to_station,
-            "train_number": train_number,
-            "date_of_working": date_of_working,
-            "analysed_by": analysed_by,
-            "analysed_by_name": analysed_by_name,
-            "unit_number": unit_number,
-            "train_type": train_type,
-            "notes": notes,
-            "uploaded_at": datetime.now().isoformat(),
-            "corridor_info": corridor_info,
-            "halting_stations": halting_station_map,
-            "ordered_stations": ordered_stations if 'ordered_stations' in locals() else [],
-            "violations": violations,
-            "violation_count": len(violations),
-            "overspeed_events": overspeed_events,
-            "overspeed_summary": overspeed_summary,
-            "brake_tests": brake_tests,
-            "abnormality_text": abnormality_text,
-            "data": spm_rows,
-            "row_count": len(df),
-            "max_speed": float(df["Speed"].max()),
-            "total_distance": float(df["Distance"].sum()),
-            "platform_entry_data": platform_entry_data,
-            "run_row": run_row,  # Store for DB insert on confirm
-        }
+        # Departure / arrival / running time.
+        #
+        # Computed HERE, before the run is stored, not just before the response.
+        # These three values feed the PDF's metadata grid, and the server has no
+        # other way to recover them once the request ends — the raw Time column is
+        # in the frame, but the midnight-crossing arithmetic is not repeated anywhere.
+        start_time = None
+        end_time = None
+        duration = None
+        if "Time" in df.columns and len(df) > 0:
+            first_time = df["Time"][0]
+            last_time = df["Time"][-1]
+            if first_time:
+                start_time = str(first_time)
+            if last_time:
+                end_time = str(last_time)
+
+            # Calculate duration with midnight crossing handling
+            if start_time and end_time:
+                try:
+                    from datetime import datetime as dt, timedelta as td
+                    fmt = "%H:%M:%S"
+                    # Try parsing with seconds
+                    try:
+                        t1 = dt.strptime(start_time, fmt)
+                        t2 = dt.strptime(end_time, fmt)
+                    except ValueError:
+                        # Try without seconds
+                        fmt = "%H:%M"
+                        t1 = dt.strptime(start_time[:5], fmt)
+                        t2 = dt.strptime(end_time[:5], fmt)
+
+                    diff = t2 - t1
+                    # Handle midnight crossing
+                    if diff.total_seconds() < 0:
+                        diff = diff + td(days=1)
+                    total_secs = int(diff.total_seconds())
+                    hours = total_secs // 3600
+                    mins = (total_secs % 3600) // 60
+                    secs = total_secs % 60
+                    duration = f"{hours:02d}:{mins:02d}:{secs:02d}"
+                except Exception as e:
+                    print(f"[DEBUG] Could not calculate duration: {e}")
 
         station_window_rows = []
         window_point_rows = []
@@ -1031,51 +1045,53 @@ async def upload_spm_file(
                     ))
                     seq += 1
 
-        # Store station_window_rows and window_point_rows for DB insert on confirm
-        runs_storage[run_id]["station_window_rows"] = station_window_rows
-        runs_storage[run_id]["window_point_rows"] = window_point_rows
+        # Store the run: frame to Parquet, everything else to a pickle sidecar.
+        # Nothing is written to the DB yet — that happens on Confirm & Save.
+        # `data` (the sample rows) is deliberately absent from meta; it IS the frame.
+        run_store.put_run(run_id, df, {
+            "run_id": run_id,
+            "confirmed": False,  # Not saved to DB yet
+            "existing_run_id": existing_run_id,  # For duplicate handling on confirm
+            "existing_analysis_date": existing_analysis_date,  # When the duplicate was analyzed
+            "filename": file.filename,
+            "staff_id": staff_id,
+            "motorman_name": motorman_name,
+            "motorman_hq": motorman_hq,
+            "nominated_cli_name": nominated_cli_name,
+            "from_station": from_station,
+            "to_station": to_station,
+            "train_number": train_number,
+            "date_of_working": date_of_working,
+            "analysed_by": analysed_by,
+            "analysed_by_name": analysed_by_name,
+            "unit_number": unit_number,
+            "train_type": train_type,
+            "notes": notes,
+            "uploaded_at": datetime.now().isoformat(),
+            "corridor_info": corridor_info,
+            "halting_stations": halting_station_map,
+            "ordered_stations": ordered_stations if 'ordered_stations' in locals() else [],
+            "violations": violations,
+            "violation_count": len(violations),
+            "overspeed_events": overspeed_events,
+            "overspeed_summary": overspeed_summary,
+            "brake_tests": brake_tests,
+            "abnormality_text": abnormality_text,
+            "row_count": len(df),
+            "max_speed": float(df["Speed"].max()),
+            "total_distance": float(df["Distance"].sum()),
+            "platform_entry_data": platform_entry_data,
+            "run_row": run_row,  # Store for DB insert on confirm
+            "station_window_rows": station_window_rows,
+            "window_point_rows": window_point_rows,
+            # Needed by the PDF metadata grid; see the comment where these are computed.
+            "start_time": start_time,
+            "end_time": end_time,
+            "duration": duration,
+        })
 
         # NOTE: DB insert moved to /api/confirm/{run_id} endpoint
         # Data is only saved when user clicks "Confirm & Save"
-
-        # Extract departure/arrival times from first/last row
-        start_time = None
-        end_time = None
-        duration = None
-        if "Time" in df.columns and len(df) > 0:
-            first_time = df["Time"][0]
-            last_time = df["Time"][-1]
-            if first_time:
-                start_time = str(first_time)
-            if last_time:
-                end_time = str(last_time)
-
-            # Calculate duration with midnight crossing handling
-            if start_time and end_time:
-                try:
-                    from datetime import datetime as dt, timedelta as td
-                    fmt = "%H:%M:%S"
-                    # Try parsing with seconds
-                    try:
-                        t1 = dt.strptime(start_time, fmt)
-                        t2 = dt.strptime(end_time, fmt)
-                    except ValueError:
-                        # Try without seconds
-                        fmt = "%H:%M"
-                        t1 = dt.strptime(start_time[:5], fmt)
-                        t2 = dt.strptime(end_time[:5], fmt)
-
-                    diff = t2 - t1
-                    # Handle midnight crossing
-                    if diff.total_seconds() < 0:
-                        diff = diff + td(days=1)
-                    total_secs = int(diff.total_seconds())
-                    hours = total_secs // 3600
-                    mins = (total_secs % 3600) // 60
-                    secs = total_secs % 60
-                    duration = f"{hours:02d}:{mins:02d}:{secs:02d}"
-                except Exception as e:
-                    print(f"[DEBUG] Could not calculate duration: {e}")
 
         return {
             "success": True,
@@ -1122,18 +1138,19 @@ async def upload_spm_file(
 @app.get("/runs")
 async def list_runs():
     """List all uploaded runs"""
+    # Served entirely from the RAM index — no Parquet or sidecar reads.
     return {
         "runs": [
             {
-                "run_id": run_id,
-                "filename": data["filename"],
-                "staff_id": data["staff_id"],
-                "from_station": data["from_station"],
-                "to_station": data["to_station"],
-                "uploaded_at": data["uploaded_at"],
-                "row_count": data["row_count"],
+                "run_id": entry["run_id"],
+                "filename": entry.get("filename"),
+                "staff_id": entry.get("staff_id"),
+                "from_station": entry.get("from_station"),
+                "to_station": entry.get("to_station"),
+                "uploaded_at": entry.get("uploaded_at"),
+                "row_count": entry.get("row_count"),
             }
-            for run_id, data in runs_storage.items()
+            for entry in run_store.list_index()
         ]
     }
 
@@ -1237,11 +1254,12 @@ async def export_daily_csv(date: Optional[str] = None):
 
 @app.get("/runs/{run_id}")
 async def get_run_details(run_id: str):
-    """Get details of a specific run"""
-    if run_id not in runs_storage:
+    """Get metadata for a specific run (without the sample rows)."""
+    meta = run_store.get_meta(run_id)
+    if meta is None:
         raise HTTPException(status_code=404, detail="Run not found")
 
-    return runs_storage[run_id]
+    return meta
 
 
 @app.post("/chart_data")
@@ -1258,40 +1276,30 @@ async def get_chart_data(
     if not run_id:
         raise HTTPException(status_code=400, detail="run_id is required")
 
-    # 1) If run_id is provided, try RAM first, then DB
-    else:
-        if run_id in runs_storage:
-            run_data = runs_storage[run_id]
-        else:
-            meta = get_run(run_id)
-            if not meta:
-                raise HTTPException(status_code=404, detail="Run not found")
+    try:
+        run_data = run_store.load_run(run_id)
+    except KeyError:
+        # There used to be a DB fallback here that read div_sub_spm_points. Nothing
+        # ever writes that table — insert_points() has zero callers, and
+        # delete_run_cascade documents it at spm_db.py:349 — so the branch could
+        # only ever 404 with "Run points not found". A 410 states what really
+        # happened: the run aged out of the store, or the process restarted.
+        raise HTTPException(
+            status_code=410,
+            detail="Run data expired — re-upload the SPM file to view charts",
+        )
 
-            points = get_points(run_id)
-            if not points:
-                raise HTTPException(status_code=404, detail="Run points not found")
+    return build_chart_payload(run_data)
 
-            # Build a run_data dict shaped like your existing code expects
-            run_data = {
-                "run_id": run_id,
-                "staff_id": meta.get("motorman_hrms_id"),
-                "from_station": meta.get("from_station"),
-                "to_station": meta.get("to_station"),
-                "train_number": meta.get("train_number"),
-                "date_of_working": meta.get("date_of_working"),
-                "analysed_by": None,
-                "unit_number": meta.get("unit_no"),
-                "train_type": None,
-                "notes": meta.get("abnormality_noticed"),
-                "uploaded_at": meta.get("analysis_date").isoformat() if meta.get("analysis_date") else "",
-                "halting_stations": {},
-                "ordered_stations": [],
-                "violations": [],
-                "violation_count": 0,
-                "first_halt_index": None,
-                "data": points,
-            }
 
+def build_chart_payload(run_data: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Build the chart payload consumed by ui/spm.html and by the PDF renderer.
+
+    Extracted from the body of POST /chart_data so the on-screen report and the
+    generated PDF are provably fed from the same computation. `run_data` is a
+    run_store meta dict plus a "data" key holding the sample rows.
+    """
     # Convert stored data to chart format
     samples = []
     entry_samples = []
@@ -1451,10 +1459,9 @@ async def get_chart_data(
 @app.delete("/runs/{run_id}")
 async def delete_run(run_id: str):
     """Delete a run"""
-    if run_id not in runs_storage:
-        raise HTTPException(status_code=404, detail="Run not found")
-
-    del runs_storage[run_id]
+    # Idempotent: the Discard handler in ui/spm.html swallows errors anyway, and a
+    # run that already expired is indistinguishable from one already discarded.
+    run_store.drop_run(run_id)
     return {"success": True, "message": f"Run {run_id} deleted"}
 
 
@@ -1464,10 +1471,12 @@ async def confirm_run(run_id: str):
     Confirm and save a run to the database.
     Data is only saved when user explicitly confirms after reviewing charts.
     """
-    if run_id not in runs_storage:
-        raise HTTPException(status_code=404, detail="Run not found in memory")
-
-    run_data = runs_storage[run_id]
+    run_data = run_store.get_meta(run_id)
+    if run_data is None:
+        raise HTTPException(
+            status_code=410,
+            detail="Run data expired — re-upload the SPM file to save it",
+        )
 
     # Check if already confirmed
     if run_data.get("confirmed", False):
@@ -1478,6 +1487,7 @@ async def confirm_run(run_id: str):
     replaced_existing = False
     if existing_run_id:
         print(f"[DEBUG DB] Found existing run {existing_run_id}, replacing...")
+        _delete_pdf_for_run(existing_run_id)   # before the row goes, or the file leaks
         delete_run_cascade(existing_run_id)
         replaced_existing = True
 
@@ -1496,16 +1506,31 @@ async def confirm_run(run_id: str):
         insert_window_points(window_point_rows)
 
         # Mark as confirmed
-        runs_storage[run_id]["confirmed"] = True
+        run_store.update_meta(run_id, confirmed=True)
 
         print(f"[DEBUG DB] Run {run_id} confirmed and saved to database")
 
-        return {
+        result = {
             "success": True,
             "message": "Analysis confirmed and saved",
             "run_id": run_id,
             "replaced_existing": replaced_existing
         }
+
+        # Render and file the PDF now, while the run is still in the store.
+        # The analysis is already committed at this point, so a rendering failure
+        # must never turn into a failed save — report it and move on.
+        try:
+            saved = await run_in_threadpool(_generate_and_store_pdf, run_id)
+            result["pdf_saved"] = True
+            result["pdf_filename"] = saved["filename"]
+        except Exception as pdf_error:
+            import traceback
+            traceback.print_exc()
+            result["pdf_saved"] = False
+            result["pdf_error"] = str(pdf_error)
+
+        return result
 
     except Exception as e:
         print(f"[ERROR] Failed to save run {run_id}: {e}")
@@ -1909,185 +1934,200 @@ def _delete_oldest_motorman_pdfs(hrms_id: str, delete_count: int):
         cn.close()
 
 
+def _delete_pdf_for_run(run_id: str) -> None:
+    """
+    Delete the stored PDF belonging to a run, before its DB row is removed.
+
+    delete_run_cascade() drops the row but not the file, so re-analysing the same
+    train/date repeatedly used to leak one orphaned PDF per iteration.
+    """
+    from db_config import get_db_connection
+    cn = get_db_connection()
+    try:
+        cur = cn.cursor(dictionary=True)
+        cur.execute("""
+            SELECT motorman_hrms_id, pdf_filename FROM div_sub_spm_runs
+            WHERE run_id = %s
+        """, [run_id])
+        row = cur.fetchone()
+        cur.close()
+        if row and row.get("pdf_filename"):
+            hrms_id = row.get("motorman_hrms_id") or "other_motorman"
+            path = REPORTS_DIR / "motorman" / hrms_id / row["pdf_filename"]
+            if path.exists():
+                path.unlink()
+    except Exception as exc:
+        print(f"[WARN] Could not remove PDF for run {run_id}: {exc}")
+    finally:
+        cn.close()
+
+
+# Rendering a report holds a few matplotlib figures plus the full sample list.
+# Two at a time keeps peak memory predictable when several users confirm at once.
+_PDF_SEMAPHORE = threading.Semaphore(2)
+
+
+def _build_pdf_bytes(run_id: str) -> Tuple[bytes, Dict[str, Any]]:
+    """
+    Render a run to PDF bytes. Blocking and CPU-bound — always call through
+    run_in_threadpool so the single uvicorn worker keeps serving other requests.
+
+    Returns (pdf_bytes, meta). Raises KeyError if the run is no longer stored.
+    """
+    from report_model import build_report_model
+    from pdf_report import build_report_pdf
+
+    run_data = run_store.load_run(run_id)          # KeyError when expired
+    payload = build_chart_payload(run_data)
+    analysis_dt = datetime.now(timezone(timedelta(hours=5, minutes=30)))
+
+    with _PDF_SEMAPHORE:
+        model = build_report_model(
+            run_data, payload,
+            analysis_dt=analysis_dt,
+            reference_data_dir=DATA_ROOT / "reference_data",
+        )
+        return build_report_pdf(model), run_data
+
+
+def _generate_and_store_pdf(run_id: str) -> Dict[str, Any]:
+    """
+    Render a run's PDF and file it under reports/motorman/{hrms_id}/.
+
+    Enforces the 20-per-motorman cap, then records the filename on the run row so
+    the Reports page can link straight to the static file.
+    """
+    from db_config import get_db_connection
+
+    pdf_bytes, meta = _build_pdf_bytes(run_id)
+
+    hrms_id = meta.get("staff_id") or "other_motorman"
+    motorman_name = meta.get("motorman_name") or "Unknown"
+    if motorman_name == "Unknown" and hrms_id != "other_motorman":
+        staff = get_staff_by_hrms(hrms_id)
+        if staff:
+            motorman_name = staff.get("staff_name", "Unknown")
+
+    folder = REPORTS_DIR / "motorman" / hrms_id
+    folder.mkdir(parents=True, exist_ok=True)
+
+    deleted_old = False
+    if hrms_id != "other_motorman":
+        current = _get_motorman_pdf_count(hrms_id)
+        if current >= MAX_MOTORMAN_REPORTS:
+            _delete_oldest_motorman_pdfs(hrms_id, current - MAX_MOTORMAN_REPORTS + 1)
+            deleted_old = True
+
+    # The in-memory key is `unit_number`; an older version read `unit_no` here and
+    # silently produced "-NA-" in every stored filename.
+    filename = _generate_pdf_filename(
+        motorman_name,
+        meta.get("train_number") or "",
+        meta.get("unit_number") or "",
+        str(meta.get("date_of_working") or ""),
+    )
+
+    (folder / filename).write_bytes(pdf_bytes)
+
+    cn = get_db_connection()
+    try:
+        cur = cn.cursor()
+        cur.execute(
+            "UPDATE div_sub_spm_runs SET pdf_filename = %s WHERE run_id = %s",
+            [filename, run_id],
+        )
+        cn.commit()
+        cur.close()
+    finally:
+        cn.close()
+
+    return {
+        "success": True,
+        "message": "PDF saved successfully",
+        "filename": filename,
+        "path": f"/reports/motorman/{hrms_id}/{filename}",
+        "size_bytes": len(pdf_bytes),
+        "deleted_old": deleted_old,
+    }
+
+
 @app.post("/api/motorman-reports/save/{run_id}")
-async def save_motorman_report(run_id: str, pdf_data: bytes = File(...)):
+async def save_motorman_report(run_id: str):
     """
-    Save PDF report for a motorman.
-    - Creates folder: reports/motorman/{hrms_id}/
-    - Enforces 20 PDF limit per motorman (deletes oldest if exceeded)
-    - Updates database with pdf_filename
+    Render and store a run's PDF on demand.
 
-    Args:
-        run_id: The run ID to save PDF for
-        pdf_data: The PDF file content
+    The PDF is built server-side from the stored run — the browser sends no file.
+    Normally this happens automatically on Confirm & Save; this endpoint exists to
+    regenerate a report without re-confirming.
     """
-    from db_config import get_db_connection
-
     try:
-        # Get run details from database
-        run = get_run(run_id)
-        if not run:
-            raise HTTPException(status_code=404, detail="Run not found")
-
-        hrms_id = run.get('motorman_hrms_id')
-        if not hrms_id:
-            hrms_id = "other_motorman"
-
-        # Get motorman name for filename
-        motorman_name = "Unknown"
-        if hrms_id and hrms_id != "other_motorman":
-            staff = get_staff_by_hrms(hrms_id)
-            if staff:
-                motorman_name = staff.get('staff_name', 'Unknown')
-
-        # Create motorman folder
-        motorman_folder = REPORTS_DIR / "motorman" / hrms_id
-        motorman_folder.mkdir(parents=True, exist_ok=True)
-
-        # Check and enforce 20 PDF limit
-        if hrms_id != "other_motorman":
-            current_count = _get_motorman_pdf_count(hrms_id)
-            if current_count >= MAX_MOTORMAN_REPORTS:
-                delete_count = current_count - MAX_MOTORMAN_REPORTS + 1
-                _delete_oldest_motorman_pdfs(hrms_id, delete_count)
-
-        # Generate filename
-        filename = _generate_pdf_filename(
-            motorman_name,
-            run.get('train_number', ''),
-            run.get('unit_no', ''),
-            str(run.get('date_of_working', ''))
+        return await run_in_threadpool(_generate_and_store_pdf, run_id)
+    except KeyError:
+        raise HTTPException(
+            status_code=410,
+            detail="Run data expired — re-upload the SPM file to regenerate the PDF",
         )
-
-        # Save PDF to disk
-        file_path = motorman_folder / filename
-        with open(file_path, 'wb') as f:
-            f.write(pdf_data)
-
-        # Update database with pdf_filename
-        cn = get_db_connection()
-        try:
-            cur = cn.cursor()
-            cur.execute("""
-                UPDATE div_sub_spm_runs SET pdf_filename = %s WHERE run_id = %s
-            """, [filename, run_id])
-            cn.commit()
-            cur.close()
-        finally:
-            cn.close()
-
-        return {
-            "success": True,
-            "message": "PDF saved successfully",
-            "filename": filename,
-            "path": f"/reports/motorman/{hrms_id}/{filename}",
-            "deleted_old": current_count >= MAX_MOTORMAN_REPORTS if hrms_id != "other_motorman" else False
-        }
-
-    except HTTPException:
-        raise
     except Exception as e:
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Failed to save PDF: {str(e)}")
 
 
-@app.post("/api/motorman-reports/save-from-memory/{run_id}")
-async def save_motorman_report_from_memory(run_id: str, pdf_base64: str = Body(..., embed=True)):
+@app.get("/reports/motorman/{hrms_id}/{filename}")
+async def serve_motorman_pdf(hrms_id: str, filename: str):
     """
-    Save PDF report from base64 encoded data (sent from browser).
-    Used when browser generates PDF and sends it to server.
-    """
-    import base64
-    from db_config import get_db_connection
+    Serve a stored motorman PDF.
 
+    Replaces a StaticFiles mount, which only matched the root_path-prefixed URL and
+    so 404'd on localhost. The Reports page links here via ${API_BASE}/reports/...
+    """
+    # Path components come straight from the URL; keep them to a single segment
+    # so neither can climb out of the reports directory.
+    if "/" in filename or ".." in filename or "/" in hrms_id or ".." in hrms_id:
+        raise HTTPException(status_code=404, detail="Not found")
+
+    path = REPORTS_DIR / "motorman" / hrms_id / filename
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail="PDF not found")
+
+    # inline, not attachment: the Reports page opens these in a new tab to read
+    # them. FileResponse defaults to attachment whenever `filename` is given,
+    # which makes the browser show a save dialog instead of the PDF viewer.
+    return FileResponse(
+        path,
+        media_type="application/pdf",
+        filename=filename,
+        content_disposition_type="inline",
+    )
+
+
+@app.get("/api/motorman-reports/preview/{run_id}")
+async def preview_motorman_report(run_id: str):
+    """
+    Stream a run's PDF inline without storing it or touching the database.
+
+    Deliberately not wired to any button — this is the local iteration path for
+    checking layout against the browser's print output.
+    """
     try:
-        # Decode base64 PDF data
-        # Remove data URL prefix if present
-        if ',' in pdf_base64:
-            pdf_base64 = pdf_base64.split(',')[1]
-        pdf_data = base64.b64decode(pdf_base64)
-
-        # Get run details - first check memory, then database
-        run = None
-        if run_id in runs_storage:
-            run_data = runs_storage[run_id]
-            run = {
-                'run_id': run_id,
-                'motorman_hrms_id': run_data.get('staff_id'),
-                'train_number': run_data.get('train_number'),
-                'unit_no': run_data.get('unit_no'),
-                'date_of_working': run_data.get('date_of_working'),
-            }
-            motorman_name = run_data.get('motorman_name', 'Unknown')
-        else:
-            run = get_run(run_id)
-            if not run:
-                raise HTTPException(status_code=404, detail="Run not found")
-            # Get motorman name
-            hrms_id = run.get('motorman_hrms_id')
-            if hrms_id:
-                staff = get_staff_by_hrms(hrms_id)
-                motorman_name = staff.get('staff_name', 'Unknown') if staff else 'Unknown'
-            else:
-                motorman_name = 'Unknown'
-
-        hrms_id = run.get('motorman_hrms_id')
-        if not hrms_id:
-            hrms_id = "other_motorman"
-
-        # Create motorman folder
-        motorman_folder = REPORTS_DIR / "motorman" / hrms_id
-        motorman_folder.mkdir(parents=True, exist_ok=True)
-
-        # Check and enforce 20 PDF limit
-        deleted_old = False
-        if hrms_id != "other_motorman":
-            current_count = _get_motorman_pdf_count(hrms_id)
-            if current_count >= MAX_MOTORMAN_REPORTS:
-                delete_count = current_count - MAX_MOTORMAN_REPORTS + 1
-                _delete_oldest_motorman_pdfs(hrms_id, delete_count)
-                deleted_old = True
-
-        # Generate filename
-        filename = _generate_pdf_filename(
-            motorman_name,
-            run.get('train_number', ''),
-            run.get('unit_no', ''),
-            str(run.get('date_of_working', ''))
+        pdf_bytes, meta = await run_in_threadpool(_build_pdf_bytes, run_id)
+    except KeyError:
+        raise HTTPException(
+            status_code=410,
+            detail="Run data expired — re-upload the SPM file to preview the PDF",
         )
 
-        # Save PDF to disk
-        file_path = motorman_folder / filename
-        with open(file_path, 'wb') as f:
-            f.write(pdf_data)
-
-        # Update database with pdf_filename
-        cn = get_db_connection()
-        try:
-            cur = cn.cursor()
-            cur.execute("""
-                UPDATE div_sub_spm_runs SET pdf_filename = %s WHERE run_id = %s
-            """, [filename, run_id])
-            cn.commit()
-            cur.close()
-        finally:
-            cn.close()
-
-        return {
-            "success": True,
-            "message": "PDF saved successfully",
-            "filename": filename,
-            "path": f"/reports/motorman/{hrms_id}/{filename}",
-            "deleted_old": deleted_old
-        }
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        import traceback
-        traceback.print_exc()
-        raise HTTPException(status_code=500, detail=f"Failed to save PDF: {str(e)}")
+    filename = _generate_pdf_filename(
+        meta.get("motorman_name") or "Unknown",
+        meta.get("train_number") or "",
+        meta.get("unit_number") or "",
+        str(meta.get("date_of_working") or ""),
+    )
+    return StreamingResponse(
+        BytesIO(pdf_bytes),
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'inline; filename="{filename}"'},
+    )
 
 
 @app.get("/api/motorman-reports/{hrms_id}")

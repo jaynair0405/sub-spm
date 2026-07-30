@@ -1778,6 +1778,18 @@
       }
 
       // PDF Export function
+      // Export PDF opens the browser print preview, deliberately.
+      //
+      // This is the flow the user wants: see the report, then choose whether and
+      // where to save it. A previous change replaced this with client-side PDF
+      // generation (html2pdf) that auto-downloaded and uploaded to the server; it
+      // screenshotted the whole page including the buttons, forced a folder
+      // chooser, and removed the preview. It was reverted in 46ebed7 — do not
+      // reintroduce it here.
+      //
+      // Server-side PDF storage lives in POST /api/confirm/{run_id}, which renders
+      // the report with matplotlib + reportlab and files it under
+      // reports/motorman/{hrms_id}/. See pdf_report.py.
       function exportPDF() {
         // Show PDF header before printing
         document.getElementById("pdfHeader").style.display = "flex";
@@ -2814,6 +2826,14 @@
 
             if (result.replaced_existing) {
               showToast("Previous analysis was replaced with new data", 5000);
+            }
+
+            // The server renders and files the PDF during /api/confirm; a failure
+            // there is reported but never blocks the save.
+            if (result.pdf_saved) {
+              showToast("📄 PDF report saved to Motorman Reports", 5000);
+            } else if (result.pdf_error) {
+              showToast("⚠️ Saved, but PDF generation failed", 6000);
             }
 
             // Clear duplicate info
