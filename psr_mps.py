@@ -415,6 +415,22 @@ class PSRMPSCalculator:
 
 # Utility functions
 
+def get_row_speed(row: Dict) -> float:
+    """
+    Read the speed from an SPM data row.
+
+    The upload pipeline normalizes the column to 'Speed', while older callers
+    used 'speed'. Accept either so violations are never silently read as 0.
+    """
+    value = row.get('speed')
+    if value is None:
+        value = row.get('Speed')
+    try:
+        return float(value or 0)
+    except (TypeError, ValueError):
+        return 0.0
+
+
 def detect_violations(spm_data: List[Dict], psr_values: List[int]) -> List[Dict]:
     """
     Detect speed violations where actual speed exceeds PSR/MPS.
@@ -432,7 +448,7 @@ def detect_violations(spm_data: List[Dict], psr_values: List[int]) -> List[Dict]
         if psr is None:
             continue
 
-        speed = row.get('speed', 0)
+        speed = get_row_speed(row)
         cum_dist = row.get('cumulative_distance', 0)
 
         if speed > psr:
@@ -518,7 +534,7 @@ def detect_overspeed_events(
             'start_index': index,
             'start_time': row.get('Time', ''),
             'start_km': row.get('cumulative_distance', 0),
-            'overspeed_values': [row.get('speed', 0)],
+            'overspeed_values': [get_row_speed(row)],
             'psr_value': psr,
             'threshold': threshold,
             'times': [row.get('Time', '')],
@@ -527,7 +543,7 @@ def detect_overspeed_events(
 
     def extend_event(event, row):
         """Add a sample to the current event."""
-        event['overspeed_values'].append(row.get('speed', 0))
+        event['overspeed_values'].append(get_row_speed(row))
         event['times'].append(row.get('Time', ''))
         event['kms'].append(row.get('cumulative_distance', 0))
 
@@ -539,7 +555,7 @@ def detect_overspeed_events(
             if next_psr is None:
                 continue
             next_threshold = next_psr + threshold_offset
-            next_speed = data[current_index + j].get('speed', 0)
+            next_speed = get_row_speed(data[current_index + j])
             if next_speed > next_threshold:
                 return True
         return False
@@ -587,7 +603,7 @@ def detect_overspeed_events(
     i = 0
     while i < len(spm_data):
         row = spm_data[i]
-        speed = row.get('speed', 0)
+        speed = get_row_speed(row)
         psr = psr_values[i] if i < len(psr_values) else None
 
         if psr is None:
