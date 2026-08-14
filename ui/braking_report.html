@@ -885,6 +885,53 @@
         if (chart2Instance) chart2Instance.resize();
       });
 
+      // --- PPT export helpers -------------------------------------------
+      // The slide chart is a native PowerPoint chart object, not a picture, so
+      // the user can edit series/axes in PowerPoint. Native line charts force
+      // every series onto one shared category axis, but each run is sampled at
+      // its own irregular distances (per-second SPM data), so we resample all
+      // runs onto a common distance grid first.
+
+      // Pull the plotted series straight off the ECharts instance so the slide
+      // can never drift from what is on screen.
+      function seriesFromChart(chartInstance) {
+        const opt = chartInstance.getOption() || {};
+        return (opt.series || []).map(s => ({
+          name: s.name || '',
+          color: String((s.lineStyle && s.lineStyle.color) || '4472c4').replace('#', ''),
+          points: (s.data || [])
+            .filter(p => Array.isArray(p) && p[0] !== null && p[1] !== null)
+            .map(p => [Number(p[0]), Number(p[1])])
+            .sort((a, b) => a[0] - b[0])
+        })).filter(s => s.points.length > 1);
+      }
+
+      // Linear interpolation; null outside the run's own extent so PowerPoint
+      // draws a gap rather than inventing a braking curve that was never run.
+      function speedAtDistance(points, x) {
+        if (x < points[0][0] || x > points[points.length - 1][0]) return null;
+        for (let i = 1; i < points.length; i++) {
+          const [x0, y0] = points[i - 1];
+          const [x1, y1] = points[i];
+          if (x <= x1) {
+            if (x1 === x0) return y1;
+            return y0 + (y1 - y0) * (x - x0) / (x1 - x0);
+          }
+        }
+        return null;
+      }
+
+      // Descending grid (farthest from halt first) so 0m/Halt lands on the
+      // right, matching the inverse x-axis of the on-screen chart.
+      function buildDistanceGrid(allSeries) {
+        let maxX = 0;
+        allSeries.forEach(s => s.points.forEach(p => { if (p[0] > maxX) maxX = p[0]; }));
+        const step = maxX > 400 ? 10 : 5;
+        const grid = [];
+        for (let d = Math.ceil(maxX / step) * step; d >= 0; d -= step) grid.push(d);
+        return grid;
+      }
+
       // Download PPT function
       async function downloadPPT() {
         if (!chart1Instance && !chart2Instance) {
@@ -936,18 +983,40 @@
             fontSize: 11, color: '666666'
           });
 
-          // Get chart as base64 image
-          const chartImage = chartInstance.getDataURL({
-            type: 'png',
-            pixelRatio: 2,
-            backgroundColor: '#fff'
-          });
+          // Native PowerPoint chart (editable), not a flattened image
+          const allSeries = seriesFromChart(chartInstance);
+          const grid = buildDistanceGrid(allSeries);
+          const labels = grid.map(d => (d === 0 ? 'Halt' : d + 'm'));
 
-          // Add chart image - PptxGenJS expects format: "image/png;base64,DATA"
-          const base64Data = chartImage.replace(/^data:/, '');
-          slide.addImage({
-            data: base64Data,
-            x: 0.3, y: 1.4, w: 9.4, h: 3.8
+          const chartData = allSeries.map(s => ({
+            name: s.name,
+            labels: labels,
+            values: grid.map(d => {
+              const v = speedAtDistance(s.points, d);
+              return v === null ? null : Math.round(v * 10) / 10;
+            })
+          }));
+
+          slide.addChart(pptx.ChartType.line, chartData, {
+            x: 0.3, y: 1.4, w: 9.4, h: 3.8,
+            chartColors: allSeries.map(s => s.color),
+            lineSize: 2,
+            lineSmooth: true,
+            lineDataSymbol: 'none',
+            showLegend: true,
+            legendPos: 'r',
+            legendFontSize: 7,
+            catAxisTitle: 'Distance from Halt',
+            showCatAxisTitle: true,
+            catAxisLabelFontSize: 8,
+            // ~12 labels regardless of grid density, else they overlap
+            catAxisLabelFrequency: Math.max(1, Math.ceil(grid.length / 12)),
+            valAxisTitle: 'Speed (km/h)',
+            showValAxisTitle: true,
+            valAxisMinVal: 0,
+            valAxisMaxVal: 50,
+            valAxisMajorUnit: 10,
+            valAxisLabelFontSize: 8
           });
 
           // Footer left
