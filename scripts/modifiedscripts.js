@@ -627,17 +627,13 @@ return [
   {
     segment: "DR-PR",
     limits: [
-      { startPct: 0.00, endPct: .90, limit: 105 },
-      { startPct: 0.90, endPct: 1.00, limit: 70 },
+      { startPct: 0.00, endPct: 1.00, limit: 105 },
     ]
   },
   {
     segment: "PR-BY",
     limits: [
-      { startPct: 0.00, endPct: 0.10, limit: 70 },
-      { startPct: 0.10, endPct: 0.11, limit: 70 },
-      
-      { startPct: 0.11, endPct: 0.27, limit: 105 },
+      { startPct: 0.00, endPct: 0.27, limit: 105 },
       { startPct: 0.27, endPct: 0.45, limit: 105 },
       { startPct: 0.45, endPct: 0.49, limit: 70 },
       { startPct: 0.49, endPct: 0.78, limit: 105 },

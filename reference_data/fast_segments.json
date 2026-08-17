@@ -419,13 +419,8 @@
     "limits": [
       {
         "startPct": 0.0,
-        "endPct": 0.9,
-        "limit": 105
-      },
-      {
-        "startPct": 0.9,
         "endPct": 1.0,
-        "limit": 70
+        "limit": 105
       }
     ]
   },
@@ -434,16 +429,6 @@
     "limits": [
       {
         "startPct": 0.0,
-        "endPct": 0.1,
-        "limit": 70
-      },
-      {
-        "startPct": 0.1,
-        "endPct": 0.11,
-        "limit": 70
-      },
-      {
-        "startPct": 0.11,
         "endPct": 0.27,
         "limit": 105
       },
