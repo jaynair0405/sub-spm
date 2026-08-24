@@ -1925,13 +1925,13 @@ function getSegmentBasedSpeedLimitsTHB() {
       { startPct: 0.00, endPct: 0.02, limit: 65 },
       { startPct: 0.02, endPct: 0.33, limit: 40 },
       { startPct: 0.33, endPct: 0.70, limit: 30 },
-      { startPct: 0.70, endPct: 1.0, limit: 50 },
+      { startPct: 0.70, endPct: 1.0, limit: 60 },
     ]
   },
   {
     segment: "SNPD-VSH_THB",
     limits: [
-      { startPct: 0.00, endPct: 1.00, limit: 50 },
+      { startPct: 0.00, endPct: 1.00, limit: 60 },
     ]
   },
   {
