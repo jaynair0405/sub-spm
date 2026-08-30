@@ -1,6 +1,36 @@
 """
-Extract segment speed limits from modifiedscripts.js and create JSON files
+Extract segment speed limits from modifiedscripts.js and create JSON files.
+
+RETIRED -- do not run. Kept as a record of how the JSON files were first
+produced. See the guard below for why running it is a bad idea.
 """
+import sys
+
+sys.exit(
+    "extract_segments.py is retired.\n"
+    "\n"
+    "reference_data/{fast,slow,thb}_segments.json are the source of truth now.\n"
+    "psr_mps.py reads them directly, nothing reads modifiedscripts.js, and the\n"
+    "Google Apps Script app this fed has been replaced by sub-spm itself.\n"
+    "\n"
+    "As written it cannot actually overwrite anything -- from the repo root it\n"
+    "fails opening modifiedscripts.js (which lives in scripts/), and from\n"
+    "scripts/ it fails writing to scripts/reference_data/ (which does not\n"
+    "exist). Fixing those paths is the obvious move when you hit that error,\n"
+    "and it is the wrong one: with the paths corrected this script emits\n"
+    "\n"
+    "    fast  178 segments  (live file has 179)\n"
+    "    slow  178 segments  (live file has 198)\n"
+    "    thb    31 segments  (live file has  32)\n"
+    "\n"
+    "because the function-boundary search below overshoots. It also matches\n"
+    "startPct inside // comments, so ranges deliberately commented out come\n"
+    "back as live data -- that is how SNPD-VSH and TKNG-CLA ended up with\n"
+    "ranges that shadowed the ones following them.\n"
+    "\n"
+    "Edit the JSON files directly, then run tests/test_segment_limits.py."
+)
+
 import json
 import re
 
