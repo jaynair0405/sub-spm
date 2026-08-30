@@ -562,7 +562,7 @@ return [
     segment: "MBQ-KLVA",
     limits: [
       { startPct: 0.00, endPct: 0.32, limit: 100 },
-      { startPct: 0.31, endPct: 0.51, limit: 85 },
+      { startPct: 0.32, endPct: 0.51, limit: 85 },
       { startPct: 0.51, endPct: 0.77, limit: 95 },
       { startPct: 0.77, endPct: 1.00, limit: 105 },
     ]
@@ -910,8 +910,7 @@ function getSegmentBasedSpeedLimits() {
     segment: "CLA-TKNG",
     limits: [
       { startPct: 0.00, endPct: 0.22, limit: 80 },
-      { startPct: 0.22, endPct: 0.55, limit: 40 },
-      { startPct: 0.55, endPct: 1.00, limit: 80 },
+      { startPct: 0.22, endPct: 1.00, limit: 40 },
     ]
   },
   {
@@ -1541,9 +1540,9 @@ function getSegmentBasedSpeedLimits() {
     segment: "OMB-KE",
     limits: [
       { startPct: 0.00, endPct: 0.51, limit: 105 },
-      { startPct: 0.43, endPct: 0.59, limit: 100 },
-      { startPct: 0.59, endPct: 0.84, limit: 105 },
-      { startPct: 0.84, endPct: 1.00, limit: 80 },
+      { startPct: 0.51, endPct: 0.59, limit: 100 },
+      { startPct: 0.59, endPct: 0.90, limit: 105 },
+      { startPct: 0.90, endPct: 1.00, limit: 80 },
     ]
   },
   {
@@ -1563,8 +1562,8 @@ function getSegmentBasedSpeedLimits() {
   {
     segment: "ATG-ASO",
     limits: [
-      { startPct: 0.00, endPct: 0.28, limit: 105 },
-      { startPct: 0.28, endPct: 0.37, limit: 85 },
+      { startPct: 0.00, endPct: 0.33, limit: 105 },
+      { startPct: 0.33, endPct: 0.37, limit: 85 },
       { startPct: 0.37, endPct: 0.48, limit: 100 },
       { startPct: 0.48, endPct: 1.00, limit: 105 },
     ]
@@ -1572,33 +1571,32 @@ function getSegmentBasedSpeedLimits() {
   {
     segment: "ASO-VSD",
     limits: [
-      { startPct: 0.00, endPct: 0.81, limit: 105 },
-      { startPct: 0.76, endPct: 0.90, limit: 75 },
-      { startPct: 0.90, endPct: 1.00, limit: 105 },
+      { startPct: 0.00, endPct: 0.90, limit: 105 },
+      { startPct: 0.90, endPct: 1.00, limit: 75 },
     ]
   },
   {
     segment: "VSD-KDV",
     limits: [
-      { startPct: 0.00, endPct: 0.85, limit: 105 },
-      { startPct: 0.85, endPct: 0.91, limit: 85 },
-      { startPct: 0.91, endPct: 1.00, limit: 105 },
+      { startPct: 0.00, endPct: 0.07, limit: 75 },
+      { startPct: 0.07, endPct: 1.00, limit: 105 },
     ]
   },
   {
     segment: "KDV-TLA",
     limits: [
-      { startPct: 0.00, endPct: 0.77, limit: 105 },
-      { startPct: 0.77, endPct: 0.87, limit: 90 },
-      { startPct: 0.87, endPct: 0.94, limit: 105 },
-      { startPct: 0.94, endPct: 1.00, limit: 85 },
+      { startPct: 0.00, endPct: 0.05, limit: 105 },
+      { startPct: 0.05, endPct: 0.10, limit: 85 },
+      { startPct: 0.10, endPct: 0.90, limit: 105 },
+      { startPct: 0.90, endPct: 1.00, limit: 90 },
     ]
   },
   {
     segment: "TLA-ABY",
     limits: [
-      { startPct: 0.00, endPct: 0.07, limit: 85 },
-      { startPct: 0.07, endPct: 1.00, limit: 105 },
+      { startPct: 0.00, endPct: 0.21, limit: 90 },
+      { startPct: 0.21, endPct: 0.31, limit: 85 },
+      { startPct: 0.31, endPct: 1.00, limit: 105 },
     ]
   },
   {
