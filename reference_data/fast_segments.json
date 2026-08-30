@@ -2349,16 +2349,16 @@
     "limits": [
       {
         "startPct": 0.0,
-        "endPct": 0.82,
+        "endPct": 0.88,
         "limit": 105
       },
       {
-        "startPct": 0.82,
-        "endPct": 0.88,
+        "startPct": 0.88,
+        "endPct": 0.95,
         "limit": 80
       },
       {
-        "startPct": 0.88,
+        "startPct": 0.95,
         "endPct": 1.0,
         "limit": 105
       }

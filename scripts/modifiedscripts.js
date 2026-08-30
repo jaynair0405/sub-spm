@@ -1554,9 +1554,9 @@ function getSegmentBasedSpeedLimits() {
   {
     segment: "THS-ATG",
     limits: [
-      { startPct: 0.00, endPct: 0.82, limit: 105 },
-      { startPct: 0.82, endPct: 0.88, limit: 80 },
-      { startPct: 0.88, endPct: 1.00, limit: 105 },
+      { startPct: 0.00, endPct: 0.88, limit: 105 },
+      { startPct: 0.88, endPct: 0.95, limit: 80 },
+      { startPct: 0.95, endPct: 1.00, limit: 105 },
     ]
   },
   {
