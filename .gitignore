@@ -52,6 +52,17 @@ Thumbs.db
 !train_corridor_map.csv
 !Sub  SPM Data Analysis - All Locals.csv
 
+# ...and the corridor files in data/, loaded at startup by
+# load_default_corridors(). These hold the inter-station distances every
+# position calculation depends on, and they are hand-curated the same way
+# the three above are. 160K for all 16. Left untracked they had no history
+# and no way back from git, and because the loader skips a missing or
+# unparseable file without complaint, losing one degraded the app silently.
+!data/*.csv
+
+# The .docx/.xlsx/.pdf sitting in data/ are working notes, not app inputs.
+data/*.docx
+
 # Local pre-edit backups (e.g. "Fast Locals.csv.bak-2026-07-29").
 # Note *.csv above does NOT catch these — the name does not end in .csv.
 *.bak

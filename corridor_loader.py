@@ -336,15 +336,33 @@ class CorridorManager:
         return self.train_corridor_map.get(key)
 
     def load_default_corridors(self) -> None:
+        # Loading stays non-fatal: one bad corridor file should not stop the
+        # app from starting for every other corridor. But it used to fail in
+        # complete silence, so a train that could not be resolved looked like a
+        # data problem rather than a missing file. Collect and report instead.
+        missing = []
+        failed = []
+
         for name, relative in self.DEFAULT_FILES.items():
             path = self.data_root / "data" / relative
             if not path.exists():
+                missing.append(relative)
                 continue
             try:
                 corridor_data = load_corridor_file(path)
                 self.corridors[name] = corridor_data
-            except Exception:
+            except Exception as exc:
+                failed.append(f"{relative} ({exc})")
                 continue
+
+        total = len(self.DEFAULT_FILES)
+        print(f"✓ Loaded {total - len(missing) - len(failed)}/{total} corridor files")
+        if missing:
+            print(f"[WARNING] Corridor files missing from data/: {', '.join(missing)}")
+        if failed:
+            print(f"[WARNING] Corridor files failed to parse: {'; '.join(failed)}")
+        if missing or failed:
+            print("[WARNING] Trains on those corridors will not resolve.")
 
     def register_uploaded_corridor(self, name: str, file_path: Path) -> CorridorData:
         data = load_corridor_file(file_path)
