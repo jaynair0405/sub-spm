@@ -2459,11 +2459,34 @@
             });
           }
 
-          // Add violation markers if available
-          if (payload.violations && payload.violations.length > 0) {
-            const violationData = samples.map((s, idx) => {
-              const violation = payload.violations.find(v => v.index === idx);
-              return violation ? s.speed : null;
+          // Add violation markers. These come from overspeed_events, not the
+          // raw violations list: the events are the ones that met the criteria
+          // shown in the table below (speed > PSR + 3, sustained 7+ samples),
+          // whereas violations holds every sample even 1 km/h over. Marking the
+          // full start_index..end_index span keeps the dots aligned with the
+          // start/end km the table reports for each event.
+          const overspeedEvents = payload.overspeed_events || [];
+          if (overspeedEvents.length > 0) {
+            // Mirrors get_severity_color() in psr_mps.py
+            const SEVERITY_COLORS = {
+              minor: '#FFA500',
+              moderate: '#FF6B00',
+              severe: '#FF0000',
+              critical: '#8B0000',
+            };
+
+            const violationData = new Array(samples.length).fill(null);
+            overspeedEvents.forEach(ev => {
+              const start = Math.max(0, ev.start_index ?? 0);
+              const end = Math.min(samples.length - 1, ev.end_index ?? -1);
+              const color = SEVERITY_COLORS[ev.severity] || '#FF0000';
+              for (let i = start; i <= end; i++) {
+                if (!samples[i]) continue;
+                violationData[i] = {
+                  value: samples[i].speed,
+                  itemStyle: { color },
+                };
+              }
             });
 
             series.push({
@@ -2471,7 +2494,6 @@
               type: 'scatter',
               data: violationData,
               symbolSize: 8,
-              itemStyle: { color: '#ff0000' },
               z: 3,  // Draw on top of everything
             });
           }
@@ -2479,7 +2501,7 @@
           const legendEntries = [];
           if (hasPSR) legendEntries.push("MPS/PSR");
           legendEntries.push("Actual Speed");
-          if (payload.violations && payload.violations.length > 0) {
+          if (overspeedEvents.length > 0) {
             legendEntries.push("Violations");
           }
           if (brakeAreas.length) {
@@ -2723,9 +2745,13 @@
               message += `Train Type: ${uploadResult.train_type || 'unknown'}\n`;
               message += `Halts Detected: ${uploadResult.halts_detected || 0}\n`;
 
-              if (uploadResult.violation_count > 0) {
-                message += `\n⚠️ Violations Found: ${uploadResult.violation_count}\n`;
-                const vsum = uploadResult.violations_summary;
+              // Counts criteria-matched overspeed events, so this agrees with
+              // the chart markers and the violation table. violation_count is
+              // every sample over the limit, which overstates it heavily.
+              const osum = uploadResult.overspeed_summary || {};
+              if (osum.total_events > 0) {
+                message += `\n⚠️ Violations Found: ${osum.total_events}\n`;
+                const vsum = osum.by_severity || {};
                 if (vsum.critical > 0) message += `  • Critical: ${vsum.critical}\n`;
                 if (vsum.severe > 0) message += `  • Severe: ${vsum.severe}\n`;
                 if (vsum.moderate > 0) message += `  • Moderate: ${vsum.moderate}\n`;
