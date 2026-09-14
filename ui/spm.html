@@ -1017,7 +1017,7 @@
                       <tr>
                         <th>#</th>
                         <th>Time</th>
-                        <th>Location (km)</th>
+                        <th>Location</th>
                         <th>Max Speed</th>
                         <th>Limit</th>
                         <th>Excess</th>
@@ -1107,6 +1107,15 @@
         tbody.innerHTML = rowsHtml;
       };
 
+      // Section + official km post (e.g. "VGI-ABH" / "km 30.66-30.89"); older
+      // saved runs have no section, so fall back to the km run from the start.
+      const formatEventLocation = (event) => {
+        if (event.section) {
+          return `<strong>${event.section}</strong><br><span class="subtle">km ${event.start_post_km} - ${event.end_post_km}</span>`;
+        }
+        return `${event.start_km} - ${event.end_km} km from start`;
+      };
+
       const renderOverspeedEvents = (events = [], summary = {}) => {
         const tbody = document.getElementById("overspeedEventsBody");
         if (!tbody) return;
@@ -1130,7 +1139,7 @@
             <tr>
               <td>${event.event_number}</td>
               <td>${event.start_time} - ${event.end_time}</td>
-              <td>${event.start_km} - ${event.end_km}</td>
+              <td>${formatEventLocation(event)}</td>
               <td style="font-weight:bold;">${event.max_speed} km/h</td>
               <td>${event.psr_value} km/h</td>
               <td style="color:${color}; font-weight:bold;">+${event.max_excess} km/h</td>
@@ -2459,51 +2468,11 @@
             });
           }
 
-          // Add violation markers. These come from overspeed_events, not the
-          // raw violations list: the events are the ones that met the criteria
-          // shown in the table below (speed > PSR + 3, sustained 7+ samples),
-          // whereas violations holds every sample even 1 km/h over. Marking the
-          // full start_index..end_index span keeps the dots aligned with the
-          // start/end km the table reports for each event.
-          const overspeedEvents = payload.overspeed_events || [];
-          if (overspeedEvents.length > 0) {
-            // Mirrors get_severity_color() in psr_mps.py
-            const SEVERITY_COLORS = {
-              minor: '#FFA500',
-              moderate: '#FF6B00',
-              severe: '#FF0000',
-              critical: '#8B0000',
-            };
-
-            const violationData = new Array(samples.length).fill(null);
-            overspeedEvents.forEach(ev => {
-              const start = Math.max(0, ev.start_index ?? 0);
-              const end = Math.min(samples.length - 1, ev.end_index ?? -1);
-              const color = SEVERITY_COLORS[ev.severity] || '#FF0000';
-              for (let i = start; i <= end; i++) {
-                if (!samples[i]) continue;
-                violationData[i] = {
-                  value: samples[i].speed,
-                  itemStyle: { color },
-                };
-              }
-            });
-
-            series.push({
-              name: 'Violations',
-              type: 'scatter',
-              data: violationData,
-              symbolSize: 8,
-              z: 3,  // Draw on top of everything
-            });
-          }
-
+          // Violations are listed in the MPS/PSR table below; the chart no
+          // longer marks them, the PSR band is enough to see the excursion.
           const legendEntries = [];
           if (hasPSR) legendEntries.push("MPS/PSR");
           legendEntries.push("Actual Speed");
-          if (overspeedEvents.length > 0) {
-            legendEntries.push("Violations");
-          }
           if (brakeAreas.length) {
             legendEntries.push("Brake Feel Test");
           }

@@ -297,6 +297,28 @@ class PSRMPSCalculator:
 
         return None
 
+    def enhanced_stations_for(
+        self,
+        spm_data: List[Dict],
+        ordered_stations: List[str],
+        station_km_map: Dict[str, float],
+        halting_station_map: Dict[str, float],
+    ) -> List[Dict]:
+        """
+        The enhanced station list process_train_speed_limits builds internally,
+        exposed so callers can map positions back to sections (see
+        locate_overspeed_events). Same defaults for start/end distance.
+        """
+        if not spm_data or not ordered_stations:
+            return []
+        return self.calculate_directional_distances(
+            ordered_stations,
+            station_km_map,
+            halting_station_map,
+            spm_data[0].get('cumulative_distance', 0),
+            spm_data[-1].get('cumulative_distance', 0),
+        )
+
     def process_train_speed_limits(
         self,
         spm_data: List[Dict],
@@ -491,7 +513,7 @@ def detect_overspeed_events(
     spm_data: List[Dict],
     psr_values: List[int],
     threshold_offset: int = 3,
-    min_duration: int = 7
+    min_duration: int = 8
 ) -> List[Dict]:
     """
     Detect overspeed events by grouping consecutive violations.
@@ -508,7 +530,7 @@ def detect_overspeed_events(
         spm_data: SPM data with 'speed', 'cumulative_distance', 'Time' fields
         psr_values: Calculated PSR/MPS values for each data point
         threshold_offset: Tolerance above PSR/MPS (default 3 km/h)
-        min_duration: Minimum consecutive samples for an event (default 7)
+        min_duration: Minimum consecutive samples for an event (default 8)
 
     Returns:
         List of overspeed event dictionaries with:
@@ -589,6 +611,8 @@ def detect_overspeed_events(
             'end_time': end_row.get('Time', ''),
             'start_km': round(start_km, 2),
             'end_km': round(end_km, 2),
+            'start_dist': event['start_km'],
+            'end_dist': end_row.get('cumulative_distance', 0),
             'duration': len(event['overspeed_values']),
             'max_speed': round(max_speed, 1),
             'max_excess': round(max_excess, 1),
@@ -647,6 +671,62 @@ def detect_overspeed_events(
     print(f"[DEBUG OVERSPEED] Detected {len(overspeed_events)} overspeed events (threshold: PSR+{threshold_offset}, min samples: {min_duration})")
 
     return overspeed_events
+
+
+def _locate_position(cum_dist: float, enhanced_stations: List[Dict]) -> Optional[Dict]:
+    """
+    Map a cumulative distance (same unit as enhanced_stations.actualCumDist)
+    to the segment it lies in and the interpolated official km post.
+
+    Returns {'from': 'VGI', 'to': 'ABH', 'post_km': 30.71} or None when the
+    position is outside the station list.
+    """
+    if not enhanced_stations or len(enhanced_stations) < 2:
+        return None
+    for i in range(len(enhanced_stations) - 1):
+        a, b = enhanced_stations[i], enhanced_stations[i + 1]
+        a_dist, b_dist = a['actualCumDist'], b['actualCumDist']
+        last = i == len(enhanced_stations) - 2
+        if a_dist <= cum_dist < b_dist or (last and cum_dist >= b_dist):
+            length = b_dist - a_dist
+            pct = 0.0 if length == 0 else min(1.0, (cum_dist - a_dist) / length)
+            post = a['officialKM'] + pct * (b['officialKM'] - a['officialKM'])
+            return {'from': a['name'], 'to': b['name'], 'post_km': post / 1000.0}
+    return None
+
+
+def locate_overspeed_events(events: List[Dict], enhanced_stations: List[Dict]) -> List[Dict]:
+    """
+    Annotate overspeed events (in place) with where on the railway they happened.
+
+    The table used to show start_km/end_km, which is distance run from the
+    first station of the trip. Staff and CLIs read locations as a section
+    (VGI-ABH) or an official km post, so each event gains:
+
+        section       "VGI-ABH"  (start segment; "VGI-KSRA" if it spans segments)
+        start_post_km / end_post_km   official km posts, interpolated
+        location      "VGI-ABH (km 30.66-30.89)"  ready-to-print text
+
+    Events whose position cannot be resolved keep only the km-run fields and
+    get no 'location' key, so renderers fall back to the old text.
+    """
+    if not events or not enhanced_stations:
+        return events
+    for ev in events:
+        start = _locate_position(ev.get('start_dist', 0), enhanced_stations)
+        end = _locate_position(ev.get('end_dist', 0), enhanced_stations)
+        if not start:
+            continue
+        end = end or start
+        section = f"{start['from']}-{start['to']}"
+        if (end['from'], end['to']) != (start['from'], start['to']):
+            section = f"{start['from']}-{end['to']}"
+        posts = sorted([start['post_km'], end['post_km']])
+        ev['section'] = section
+        ev['start_post_km'] = round(posts[0], 2)
+        ev['end_post_km'] = round(posts[1], 2)
+        ev['location'] = f"{section} (km {ev['start_post_km']}-{ev['end_post_km']})"
+    return events
 
 
 def get_overspeed_summary(events: List[Dict]) -> Dict:

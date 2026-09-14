@@ -190,7 +190,8 @@ def test_pdf_with_violations_and_overspeed_events():
     m["overspeed_events"] = [
         {"event_number": 1, "start_time": "10:00:00", "end_time": "10:00:12",
          "start_km": 1.2, "end_km": 1.6, "max_speed": 88, "psr_value": 60,
-         "max_excess": 28, "severity": "critical"},
+         "max_excess": 28, "severity": "critical",
+         "section": "VGI-ABH", "start_post_km": 30.66, "end_post_km": 30.89},
         {"event_number": 2, "start_time": "10:05:00", "end_time": "10:05:09",
          "start_km": 4.2, "end_km": 4.4, "max_speed": 68, "psr_value": 60,
          "max_excess": 8, "severity": "minor"},

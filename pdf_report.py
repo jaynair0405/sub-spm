@@ -294,12 +294,8 @@ def render_speed_profile(
         handles.append(Patch(facecolor=BFT_RED, alpha=0.10, edgecolor="none",
                              label="Brake Feel Test"))
 
-    vx = [v.get("index") for v in violations or [] if v.get("index") is not None]
-    vx = [i for i in vx if 0 <= i < len(speeds)]
-    if vx:
-        ax.scatter(vx, [speeds[i] for i in vx], s=18, color=VIOLATION_RED, zorder=6)
-        handles.append(Line2D([], [], marker="o", linestyle="none", markersize=4,
-                              color=VIOLATION_RED, label="Violations"))
+    # Violations are not marked on the chart (they are listed in the table);
+    # the `violations` argument is kept so the call signature is unchanged.
 
     ax.set_title("Speed Profile with PSR/MPS Overlay" if psr else "Speed Profile",
                  fontsize=11, fontweight="bold", color=SPEED_NAVY)
@@ -737,11 +733,18 @@ def _pf_table(report: Dict[str, Any], st: Dict[str, Any], width: float) -> Any:
     return t
 
 
+def _event_location(ev: Dict[str, Any]) -> str:
+    """Section + official km post; older runs without a section fall back to km-run."""
+    if ev.get("section"):
+        return f"<b>{ev['section']}</b><br/>km {ev.get('start_post_km', '-')} - {ev.get('end_post_km', '-')}"
+    return f"{ev.get('start_km', '-')} - {ev.get('end_km', '-')} km from start"
+
+
 def _overspeed_table(report: Dict[str, Any], st: Dict[str, Any], width: float) -> Any:
     """Port of renderOverspeedEvents (ui/spm.html:1109-1155), incl. the TOTAL row."""
     events = report["overspeed_events"]
     summary = report["overspeed_summary"] or {}
-    headers = ["#", "Time", "Location (km)", "Max Speed", "Limit", "Excess", "Severity"]
+    headers = ["#", "Time", "Location", "Max Speed", "Limit", "Excess", "Severity"]
     rows = [[Paragraph(f"<b>{h}</b>", st["cell"]) for h in headers]]
     extra: List[Any] = []
 
@@ -754,7 +757,7 @@ def _overspeed_table(report: Dict[str, Any], st: Dict[str, Any], width: float) -
             rows.append([
                 Paragraph(str(ev.get("event_number", i)), st["cell"]),
                 Paragraph(f"{ev.get('start_time', '-')} - {ev.get('end_time', '-')}", st["cell"]),
-                Paragraph(f"{ev.get('start_km', '-')} - {ev.get('end_km', '-')}", st["cell"]),
+                Paragraph(_event_location(ev), st["cell"]),
                 Paragraph(f"<b>{ev.get('max_speed', '-')} km/h</b>", st["cell"]),
                 Paragraph(f"{ev.get('psr_value', '-')} km/h", st["cell"]),
                 Paragraph(f'<font color="{colour}"><b>+{ev.get("max_excess", "-")} km/h</b></font>', st["cell"]),

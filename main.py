@@ -16,7 +16,7 @@ from io import BytesIO
 from spm_db import insert_run, insert_station_windows, insert_window_points, find_existing_run, delete_run_cascade
 import run_store
 from corridor_loader import CorridorManager
-from psr_mps import PSRMPSCalculator, detect_violations, detect_overspeed_events, get_overspeed_summary
+from psr_mps import PSRMPSCalculator, detect_violations, detect_overspeed_events, get_overspeed_summary, locate_overspeed_events
 from halt_detection import HaltDetector, calculate_cumulative_distance
 from platform_entry_speed import PlatformEntryCalculator
 from brakefeel_detector import BrakeFeelDetector
@@ -116,10 +116,12 @@ def generate_abnormality_text(
         psr = event.get('psr_value', 0)
         max_speed = event.get('max_speed', 0)
         duration = event.get('duration', 0)
-        start_km = event.get('start_km', 0)
-        end_km = event.get('end_km', 0)
+        if event.get('section'):
+            where = f"BETWEEN {event['section']} (KM {event.get('start_post_km')}-{event.get('end_post_km')})"
+        else:
+            where = f"AT {event.get('start_km', 0)}-{event.get('end_km', 0)} KM"
         remarks.append(
-            f"PSR {psr} VIOLATION MOMENTARY AT {start_km}-{end_km} KM, {max_speed} KMPH FOR {duration} SEC"
+            f"PSR {psr} VIOLATION MOMENTARY {where}, {max_speed} KMPH FOR {duration} SEC"
         )
 
     # 2. Platform Entry Speed > 45 kmph
@@ -127,7 +129,7 @@ def generate_abnormality_text(
     for station, data in platform_entry_data.items():
         entry_speed = data.get('entry_speed')
         if entry_speed and entry_speed > 45:
-            pf_entry_violations.append(f"{station}-{int(entry_speed)}")
+            pf_entry_violations.append(station)
     if pf_entry_violations:
         if len(pf_entry_violations) > 5:
             remarks.append("PF ENTRY SPEED MORE THAN 45 KMPH AT MANY STN")
@@ -139,7 +141,7 @@ def generate_abnormality_text(
     for station, data in platform_entry_data.items():
         mid_pf = data.get('mid_platform_speed')
         if mid_pf and mid_pf > 30:
-            mid_pf_violations.append(f"{station}-{int(mid_pf)}")
+            mid_pf_violations.append(station)
     if mid_pf_violations:
         if len(mid_pf_violations) > 5:
             remarks.append("MID PF SPEED MORE THAN 30 KMPH AT MANY STN")
@@ -151,7 +153,7 @@ def generate_abnormality_text(
     for station, data in platform_entry_data.items():
         one_coach = data.get('one_coach_speed')
         if one_coach and one_coach > 15:
-            one_coach_violations.append(f"{station}-{int(one_coach)}")
+            one_coach_violations.append(station)
     if one_coach_violations:
         if len(one_coach_violations) > 5:
             remarks.append("ONE COACH BEFORE SPEED MORE THAN 15 KMPH AT MANY STN")
@@ -829,7 +831,15 @@ async def upload_spm_file(
                         print(f"[DEBUG] Found {len(violations)} individual violations")
 
                         # Detect overspeed events (grouped, with threshold=PSR+3)
-                        overspeed_events = detect_overspeed_events(spm_data_dicts, psr_values, threshold_offset=3, min_duration=7)
+                        overspeed_events = detect_overspeed_events(spm_data_dicts, psr_values, threshold_offset=3, min_duration=8)
+                        # Label each event with its section (VGI-ABH) and official km
+                        # posts; the km-run-from-start numbers confuse CLIs and staff.
+                        locate_overspeed_events(
+                            overspeed_events,
+                            psr_calculator.enhanced_stations_for(
+                                spm_data_dicts, psr_stations, adjusted_station_km_map, halting_station_map
+                            ),
+                        )
                         overspeed_summary = get_overspeed_summary(overspeed_events)
                         print(f"[DEBUG] Found {len(overspeed_events)} overspeed events")
 
