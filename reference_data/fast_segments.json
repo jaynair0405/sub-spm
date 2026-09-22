@@ -1454,16 +1454,16 @@
     "limits": [
       {
         "startPct": 0.0,
-        "endPct": 0.52,
+        "endPct": 0.61,
         "limit": 100
       },
       {
-        "startPct": 0.52,
-        "endPct": 0.82,
+        "startPct": 0.61,
+        "endPct": 0.95,
         "limit": 65
       },
       {
-        "startPct": 0.82,
+        "startPct": 0.95,
         "endPct": 1.0,
         "limit": 100
       }
@@ -1494,18 +1494,13 @@
     "limits": [
       {
         "startPct": 0.0,
-        "endPct": 0.68,
+        "endPct": 0.78,
         "limit": 100
       },
       {
-        "startPct": 0.68,
-        "endPct": 0.91,
-        "limit": 65
-      },
-      {
-        "startPct": 0.91,
+        "startPct": 0.78,
         "endPct": 1.0,
-        "limit": 100
+        "limit": 65
       }
     ]
   },

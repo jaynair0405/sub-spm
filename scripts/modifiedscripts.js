@@ -1104,9 +1104,9 @@ function getSegmentBasedSpeedLimits() {
   {
     segment: "GC-VVH",
     limits: [
-      { startPct: 0.00, endPct: 0.52, limit: 100 },
-      { startPct: 0.52, endPct: 0.82, limit: 65 },
-      { startPct: 0.82, endPct: 1.00, limit: 100 },
+      { startPct: 0.00, endPct: 0.61, limit: 100 },
+      { startPct: 0.61, endPct: 0.95, limit: 65 },
+      { startPct: 0.95, endPct: 1.00, limit: 100 },
     ]
   },
   {
@@ -1124,9 +1124,8 @@ function getSegmentBasedSpeedLimits() {
   {
     segment: "SION-MTN",
     limits: [
-      { startPct: 0.00, endPct: 0.68, limit: 100 },
-      { startPct: 0.68, endPct: 0.91, limit: 65 },
-      { startPct: 0.91, endPct: 1.00, limit: 100 },
+      { startPct: 0.00, endPct: 0.78, limit: 100 },
+      { startPct: 0.78, endPct: 1.00, limit: 65 },
     ]
   },
   {
