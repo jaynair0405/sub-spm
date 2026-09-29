@@ -734,9 +734,10 @@ def _pf_table(report: Dict[str, Any], st: Dict[str, Any], width: float) -> Any:
 
 
 def _event_location(ev: Dict[str, Any]) -> str:
-    """Section + official km post; older runs without a section fall back to km-run."""
+    """Section only (km posts hidden until the station km map is verified);
+    older runs without a section fall back to km-run."""
     if ev.get("section"):
-        return f"<b>{ev['section']}</b><br/>km {ev.get('start_post_km', '-')} - {ev.get('end_post_km', '-')}"
+        return f"<b>{ev['section']}</b>"
     return f"{ev.get('start_km', '-')} - {ev.get('end_km', '-')} km from start"
 
 

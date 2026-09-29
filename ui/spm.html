@@ -1107,11 +1107,12 @@
         tbody.innerHTML = rowsHtml;
       };
 
-      // Section + official km post (e.g. "VGI-ABH" / "km 30.66-30.89"); older
-      // saved runs have no section, so fall back to the km run from the start.
+      // Section only (e.g. "VGI-ABH"); km posts are hidden until the station km
+      // map is verified. Older saved runs have no section, so fall back to the
+      // km run from the start.
       const formatEventLocation = (event) => {
         if (event.section) {
-          return `<strong>${event.section}</strong><br><span class="subtle">km ${event.start_post_km} - ${event.end_post_km}</span>`;
+          return `<strong>${event.section}</strong>`;
         }
         return `${event.start_km} - ${event.end_km} km from start`;
       };

@@ -117,7 +117,7 @@ def generate_abnormality_text(
         max_speed = event.get('max_speed', 0)
         duration = event.get('duration', 0)
         if event.get('section'):
-            where = f"BETWEEN {event['section']} (KM {event.get('start_post_km')}-{event.get('end_post_km')})"
+            where = f"BETWEEN {event['section']}"
         else:
             where = f"AT {event.get('start_km', 0)}-{event.get('end_km', 0)} KM"
         remarks.append(
@@ -129,36 +129,36 @@ def generate_abnormality_text(
     for station, data in platform_entry_data.items():
         entry_speed = data.get('entry_speed')
         if entry_speed and entry_speed > 45:
-            pf_entry_violations.append(station)
+            pf_entry_violations.append(f"{station} {int(entry_speed)} KMPH")
     if pf_entry_violations:
         if len(pf_entry_violations) > 5:
             remarks.append("PF ENTRY SPEED MORE THAN 45 KMPH AT MANY STN")
         else:
-            remarks.append(f"PF ENTRY SPEED MORE THAN 45 KMPH AT {','.join(pf_entry_violations)}")
+            remarks.append(f"PF ENTRY SPEED MORE THAN 45 KMPH AT {', '.join(pf_entry_violations)}")
 
     # 3. Mid Platform Speed > 30 kmph (at 130m from halt)
     mid_pf_violations = []
     for station, data in platform_entry_data.items():
         mid_pf = data.get('mid_platform_speed')
         if mid_pf and mid_pf > 30:
-            mid_pf_violations.append(station)
+            mid_pf_violations.append(f"{station} {int(mid_pf)} KMPH")
     if mid_pf_violations:
         if len(mid_pf_violations) > 5:
             remarks.append("MID PF SPEED MORE THAN 30 KMPH AT MANY STN")
         else:
-            remarks.append(f"MID PF SPEED MORE THAN 30 KMPH AT {','.join(mid_pf_violations)}")
+            remarks.append(f"MID PF SPEED MORE THAN 30 KMPH AT {', '.join(mid_pf_violations)}")
 
     # 4. One Coach Before Speed > 15 kmph
     one_coach_violations = []
     for station, data in platform_entry_data.items():
         one_coach = data.get('one_coach_speed')
         if one_coach and one_coach > 15:
-            one_coach_violations.append(station)
+            one_coach_violations.append(f"{station} {int(one_coach)} KMPH")
     if one_coach_violations:
         if len(one_coach_violations) > 5:
             remarks.append("ONE COACH BEFORE SPEED MORE THAN 15 KMPH AT MANY STN")
         else:
-            remarks.append(f"ONE COACH BEFORE SPEED MORE THAN 15 KMPH AT {','.join(one_coach_violations)}")
+            remarks.append(f"ONE COACH BEFORE SPEED MORE THAN 15 KMPH AT {', '.join(one_coach_violations)}")
 
     # 5. Brake Feel Test
     if not brake_tests:
@@ -831,9 +831,9 @@ async def upload_spm_file(
                         print(f"[DEBUG] Found {len(violations)} individual violations")
 
                         # Detect overspeed events (grouped, with threshold=PSR+3)
-                        overspeed_events = detect_overspeed_events(spm_data_dicts, psr_values, threshold_offset=3, min_duration=8)
-                        # Label each event with its section (VGI-ABH) and official km
-                        # posts; the km-run-from-start numbers confuse CLIs and staff.
+                        overspeed_events = detect_overspeed_events(spm_data_dicts, psr_values, threshold_offset=3, min_duration=10)
+                        # Label each event with its section (VGI-ABH). Official km posts are also
+                        # stored but not displayed until the station km map is verified.
                         locate_overspeed_events(
                             overspeed_events,
                             psr_calculator.enhanced_stations_for(

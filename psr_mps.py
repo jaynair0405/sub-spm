@@ -513,7 +513,7 @@ def detect_overspeed_events(
     spm_data: List[Dict],
     psr_values: List[int],
     threshold_offset: int = 3,
-    min_duration: int = 8
+    min_duration: int = 10
 ) -> List[Dict]:
     """
     Detect overspeed events by grouping consecutive violations.
@@ -530,7 +530,7 @@ def detect_overspeed_events(
         spm_data: SPM data with 'speed', 'cumulative_distance', 'Time' fields
         psr_values: Calculated PSR/MPS values for each data point
         threshold_offset: Tolerance above PSR/MPS (default 3 km/h)
-        min_duration: Minimum consecutive samples for an event (default 8)
+        min_duration: Minimum consecutive samples for an event (default 10)
 
     Returns:
         List of overspeed event dictionaries with:
